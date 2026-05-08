@@ -10,9 +10,9 @@
       class="custom-flow"
     >
       <!-- Фонова сітка, що адаптується до теми -->
-      <Background 
-        :pattern-color="systemStore.systemTheme === 'dark' ? '#222' : '#ddd'" 
-        :gap="20" 
+      <Background
+        :pattern-color="systemStore.systemTheme === 'dark' ? '#222' : '#ddd'"
+        :gap="26"
       />
       
       <Controls position="bottom-right" />
@@ -22,7 +22,7 @@
 
 <script setup>
 import { ref, watch, markRaw, computed } from 'vue'
-import { VueFlow, useVueFlow } from '@vue-flow/core'
+import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import dagre from 'dagre'
@@ -53,10 +53,10 @@ const elements = ref([])
 // Налаштування ліній за замовчуванням
 const defaultEdgeOptions = computed(() => ({
   type: 'smoothstep',
-  animated: true,
-  style: { 
+  animated: false,
+  style: {
     strokeWidth: 2,
-    stroke: 'var(--border-color)' 
+    stroke: 'var(--border-color)'
   }
 }))
 
@@ -114,13 +114,13 @@ const transformData = (rawData) => {
           source: depId,
           target: item.id,
           // Динамічний стиль лінії залежно від акценту та статусу
-          style: { 
+          style: {
             stroke: isMastered ? 'var(--accent-color)' : 'var(--border-color)',
             strokeDasharray: isLocked ? '5 5' : '0',
             opacity: isLocked ? 0.4 : 1,
             transition: 'stroke 0.3s ease'
           },
-          animated: isMastered
+          animated: systemStore.animationsEnabled && isMastered && rawData.length <= 8
         })
       })
     }
@@ -135,7 +135,7 @@ watch(() => props.nodesData, (newData) => {
 }, { immediate: true, deep: true })
 
 // Слідкуємо за зміною теми/акценту, щоб перемалювати лінії
-watch([() => systemStore.systemTheme, () => systemStore.accentColor], () => {
+watch([() => systemStore.systemTheme, () => systemStore.accentColor, () => systemStore.animationsEnabled], () => {
   elements.value = transformData(props.nodesData)
 })
 </script>

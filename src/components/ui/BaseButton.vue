@@ -24,6 +24,7 @@ defineProps({
   transition: 0.2s;
   font-family: inherit;
   color: var(--text-primary);
+  box-shadow: 0 0 0 transparent;
 }
 .primary {
   background: var(--glass-bg);
@@ -33,6 +34,7 @@ defineProps({
   background: var(--accent-color);
   color: #000;
   font-weight: 600;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent-color) 26%, transparent);
 }
 .ghost {
   background: none;
@@ -54,5 +56,6 @@ defineProps({
 .base-btn:hover {
   opacity: 0.8;
   transform: translateY(-1px);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent-color) 18%, transparent);
 }
 </style>

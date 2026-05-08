@@ -1,5 +1,5 @@
 <template>
-  <aside class="sidebar" :class="{ 'is-collapsed': isCollapsed }">
+  <aside class="sidebar" :class="{ 'is-collapsed': isCollapsed, 'is-mobile-open': isMobileOpen }">
     <div class="sidebar-inner">
       <!-- HEADER -->
       <div class="sidebar-header">
@@ -27,17 +27,17 @@
             <div class="group-line"></div>
           </div>
           
-          <RouterLink to="/" class="nav-link">
+          <RouterLink to="/" class="nav-link" @click="handleNavClick">
             <div class="nav-icon">◎</div>
             <span v-if="!isCollapsed">{{ systemStore.t('menu.dashboard') }}</span>
           </RouterLink>
 
-          <RouterLink to="/stages" class="nav-link">
+          <RouterLink to="/stages" class="nav-link" @click="handleNavClick">
             <div class="nav-icon">◈</div>
             <span v-if="!isCollapsed">{{ systemStore.t('menu.stages') }}</span>
           </RouterLink>
 
-          <RouterLink to="/missions" class="nav-link">
+          <RouterLink to="/missions" class="nav-link" @click="handleNavClick">
             <div class="nav-icon">▣</div>
             <span v-if="!isCollapsed">{{ systemStore.t('menu.missions') }}</span>
           </RouterLink>
@@ -48,7 +48,7 @@
             <span class="group-title">{{ systemStore.t('menu.evolution') }}</span>
             <div class="group-line"></div>
           </div>
-          <RouterLink to="/achievements" class="nav-link">
+          <RouterLink to="/achievements" class="nav-link" @click="handleNavClick">
             <div class="nav-icon">▤</div>
             <span v-if="!isCollapsed">{{ systemStore.t('menu.advancements') }}</span>
           </RouterLink>
@@ -58,17 +58,17 @@
 
       <!-- FOOTER -->
       <div class="sidebar-footer">
-        <div class="user-profile">
+        <RouterLink to="/profile" class="user-profile" :class="{ 'is-active': route.name === 'profile' }" @click="handleNavClick">
           <div class="avatar-circle">
-            UA
+            {{ userStore.profile.initials }}
             <div class="online-badge"></div>
           </div>
-          
-        <div class="user-meta" v-if="!isCollapsed">
-          <span class="user-name">{{ systemStore.t('user.name') }}</span>
-          <span class="user-rank">{{ systemStore.t('user.rank') }}</span>
-        </div>
-        </div>
+
+          <div class="user-meta" v-if="!isCollapsed">
+            <span class="user-name">{{ userStore.displayName }}</span>
+            <span class="user-rank">{{ userStore.rankLabel }}</span>
+          </div>
+        </RouterLink>
         <!-- КНОПКА, ЩО ВІДКРИВАЄ НАЛАШТУВАННЯ -->
         <button class="settings-btn" @click="isSettingsOpen = true" :title="systemStore.t('settings.title')">
           ⚙️
@@ -90,7 +90,7 @@
       <div class="settings-row">
         <span class="setting-label">{{ systemStore.t('settings.language') }}</span>
         <BaseSelectGroup 
-          v-model="systemStore.currentLanguage" 
+          v-model="languageModel" 
           :options="languageOptions" 
         />
       </div>
@@ -99,7 +99,7 @@
       <div class="settings-row">
         <span class="setting-label">{{ systemStore.t('settings.theme') }}</span>
         <BaseSelectGroup 
-          v-model="systemStore.systemTheme" 
+          v-model="themeModel" 
           :options="themeOptions" 
         />
       </div>
@@ -108,32 +108,40 @@
       <div class="settings-row">
         <span class="setting-label">{{ systemStore.t('settings.accent') }}</span>
         <BaseAccentPicker 
-          v-model="systemStore.accentColor" 
+          v-model="accentModel" 
         />
       </div>
       
       <div class="settings-row-inline">
         <span class="setting-label">{{ systemStore.t('settings.performance') }}</span>
-        <div class="toggle-placeholder">
-          <span :style="{ color: systemStore.animationsEnabled ? 'var(--accent-color)' : 'gray' }">
-            {{ systemStore.animationsEnabled ? 'ON' : 'OFF' }}
-          </span>
-        </div>
+        <BaseToggle v-model="animationsModel" />
       </div>
     </div>
   </BaseModal>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useSystemStore } from '@/stores/systemStore'
+import { useUserStore } from '@/stores/userStore'
 
 // Імпортуємо всі необхідні компоненти
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelectGroup from '@/components/ui/BaseSelectGroup.vue'
 import BaseAccentPicker from '@/components/ui/BaseAccentPicker.vue'
+import BaseToggle from '@/components/ui/BaseToggle.vue'
+
+const props = defineProps({
+  isMobileOpen: Boolean,
+  isMobileView: Boolean,
+})
+
+const emit = defineEmits(['close-mobile'])
 
 const systemStore = useSystemStore()
+const userStore = useUserStore()
+const route = useRoute()
 
 // Стан модалки
 const isSettingsOpen = ref(false)
@@ -147,11 +155,42 @@ const languageOptions = [
   { label: 'DE DE', value: 'de', icon: 'https://flagcdn.com/w40/de.png' }
 ]
 
-const themeOptions = [
+const themeOptions = computed(() => [
   { label: systemStore.t('settings.themset.dark'), value: 'dark' },
   { label: systemStore.t('settings.themset.light'), value: 'light' },
   { label: systemStore.t('settings.themset.system'), value: 'system' },
-]
+])
+
+const languageModel = computed({
+  get: () => systemStore.currentLanguage,
+  set: (value) => systemStore.setLanguage(value),
+})
+
+const themeModel = computed({
+  get: () => systemStore.systemTheme,
+  set: (value) => systemStore.setSystemTheme(value),
+})
+
+const accentModel = computed({
+  get: () => systemStore.accentColor,
+  set: (value) => systemStore.setAccentColor(value),
+})
+
+const animationsModel = computed({
+  get: () => systemStore.animationsEnabled,
+  set: (value) => systemStore.setAnimationsEnabled(value),
+})
+
+const handleNavClick = () => {
+  if (props.isMobileView) emit('close-mobile')
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (props.isMobileView && props.isMobileOpen) emit('close-mobile')
+  }
+)
 </script>
 
 <style scoped>
@@ -216,16 +255,37 @@ const themeOptions = [
   margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color); 
   display: flex; align-items: center; justify-content: space-between; 
 }
-.user-profile { display: flex; align-items: center; gap: 12px; }
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 14px;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.user-profile:hover {
+  background: var(--glass-bg);
+  transform: translateY(-1px);
+}
+.user-profile.is-active {
+  background: var(--accent-soft);
+}
+.user-profile.is-active .avatar-circle {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-color);
+}
 .avatar-circle { 
   width: 40px; height: 40px; background: var(--glass-bg); border-radius: 50%; 
   display: flex; align-items: center; justify-content: center; font-weight: 800; 
-  color: var(--accent-color); position: relative; font-size: 13px;
+  color: var(--accent-color); position: relative; font-size: 13px; border: 1px solid transparent;
 }
 .online-badge { 
   width: 10px; height: 10px; background: #22c55e; border: 2px solid var(--bg-sidebar); 
   border-radius: 50%; position: absolute; bottom: 0; right: 0; 
 }
+.user-meta { min-width: 0; }
 .user-name { font-size: 14px; font-weight: 700; color: var(--text-primary); display: block; line-height: 1.2; }
 .user-rank { font-size: 11px; color: var(--text-secondary); }
 
@@ -249,14 +309,18 @@ const themeOptions = [
   .sidebar {
     /* Ховаємо його вліво за межі екрану */
     transform: translateX(-100%);
-    /* Можна додати плавний виїзд, якщо потім захочеш зробити кнопку "бургер" */
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    z-index: 150;
+    box-shadow: none;
   }
 
-  /* Якщо ти захочеш відкрити його на мобілці, 
-     додамо клас, який повертатиме його на місце */
   .sidebar.is-mobile-open {
     transform: translateX(0);
+    box-shadow: 24px 0 60px rgba(0, 0, 0, 0.4);
+  }
+
+  .sidebar-inner {
+    padding-top: 82px;
   }
 }
 </style>

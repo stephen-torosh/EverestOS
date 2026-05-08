@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useUserStore } from '@/stores/userStore'
 
 export const useKnowledgeStore = defineStore('knowledge', () => {
   // 1. СТАН: Всі вузли знань у системі
@@ -55,10 +56,15 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   // Оновити статус вузла (наприклад, після завершення місії)
   function completeNode(nodeId) {
     const node = nodes.value.find(n => n.id === nodeId)
-    if (node) {
-      node.status = 'mastered'
-      unlockNextNodes(nodeId)
+    if (!node) {
+      console.error(`Knowledge node not found: ${nodeId}`)
+      return
     }
+    if (node.status === 'mastered') return
+
+    node.status = 'mastered'
+    useUserStore().recordKnowledgeMastered(node)
+    unlockNextNodes(nodeId)
   }
 
   // Логіка розблокування наступних кроків
@@ -71,6 +77,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
         )
         if (allDepsDone && node.status === 'locked') {
           node.status = 'available'
+          useUserStore().recordKnowledgeUnlocked(node)
         }
       }
     })

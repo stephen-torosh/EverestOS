@@ -4,19 +4,121 @@ export const useSwsmStore = defineStore('swsm', {
   state: () => ({
     // --- ЕТАПИ (Chapters) ---
     chapters: [
-      { id: 'ch_1', title: 'Тіні минулого', order: 1 },
-      { id: 'ch_2', title: 'Прорив у безодню', order: 2 }
+      {
+        id: 'ch_1',
+        title: 'Етап I: Земна система',
+        order: 1,
+        locationLabel: 'Земля • Орбіта • Місяць',
+        mapX: 28,
+        mapY: 58,
+      },
+      {
+        id: 'ch_2',
+        title: 'Етап II: Марсіанський фронтир',
+        order: 2,
+        locationLabel: 'Марс • Тераформінг',
+        mapX: 54,
+        mapY: 36,
+      },
+      {
+        id: 'ch_3',
+        title: 'Етап III: Зовнішня експансія',
+        order: 3,
+        locationLabel: 'Юпітер • Сатурн',
+        mapX: 78,
+        mapY: 62,
+      },
     ],
 
     // --- СВІТИ (Worlds) ---
     worlds: [
       // Етап 1
-      { id: 'earth', chapterId: 'ch_1', name: 'Земля: Сектор 7', planet: 'Earth' },
-      { id: 'mars_outpost', chapterId: 'ch_1', name: 'Марс: Станція "Арес"', planet: 'Mars' },
-      { id: 'moon_dark', chapterId: 'ch_1', name: 'Місяць: Темна сторона', planet: 'Moon' },
+      {
+        id: 'earth',
+        chapterId: 'ch_1',
+        name: 'Місто на Землі',
+        planet: 'Earth',
+        mapBody: 'earth',
+        locationLabel: 'Поверхня Землі',
+        locationType: 'surface',
+        orbitalBand: 1,
+        orbitalAngle: 205,
+        mapTag: 'EZ',
+      },
+      {
+        id: 'earth_orbit',
+        chapterId: 'ch_1',
+        name: 'Великі орбітальні конструкції',
+        planet: 'Earth Orbit',
+        mapBody: 'earth',
+        locationLabel: 'Низька орбіта Землі',
+        locationType: 'orbit',
+        orbitalBand: 2,
+        orbitalAngle: 270,
+        mapTag: 'EO',
+      },
+      {
+        id: 'moon_colonies',
+        chapterId: 'ch_1',
+        name: 'Колонії Місяця',
+        planet: 'Moon',
+        mapBody: 'moon',
+        locationLabel: 'Супутник Землі',
+        locationType: 'satellite',
+        orbitalBand: 3,
+        orbitalAngle: 330,
+        mapTag: 'MC',
+      },
+      {
+        id: 'moon_dark',
+        chapterId: 'ch_1',
+        name: 'Місяць: Темна сторона',
+        planet: 'Moon',
+        mapBody: 'moon',
+        locationLabel: 'Зворотний бік Місяця',
+        locationType: 'satellite',
+        orbitalBand: 3,
+        orbitalAngle: 348,
+        mapTag: 'MD',
+      },
       // Етап 2
-      { id: 'europa_ocean', chapterId: 'ch_2', name: 'Європа: Крижаний океан', planet: 'Jupiter' },
-      { id: 'titan_refinery', chapterId: 'ch_2', name: 'Титан: Метанові заводи', planet: 'Saturn' }
+      {
+        id: 'mars_outpost',
+        chapterId: 'ch_2',
+        name: 'Марс: Тераформінг форпост',
+        planet: 'Mars',
+        mapBody: 'mars',
+        locationLabel: 'Поверхня Марса',
+        locationType: 'surface',
+        orbitalBand: 4,
+        orbitalAngle: 28,
+        mapTag: 'MR',
+      },
+      // Етап 3
+      {
+        id: 'europa_ocean',
+        chapterId: 'ch_3',
+        name: 'Європа: Крижаний океан',
+        planet: 'Jupiter',
+        mapBody: 'jupiter',
+        locationLabel: 'Орбіта Юпітера',
+        locationType: 'orbit',
+        orbitalBand: 5,
+        orbitalAngle: 118,
+        mapTag: 'EU',
+      },
+      {
+        id: 'titan_refinery',
+        chapterId: 'ch_3',
+        name: 'Титан: Метанові заводи',
+        planet: 'Saturn',
+        mapBody: 'saturn',
+        locationLabel: 'Орбіта Сатурна',
+        locationType: 'orbit',
+        orbitalBand: 6,
+        orbitalAngle: 158,
+        mapTag: 'TT',
+      },
     ],
 
     // --- СЕКЦІЇ (Sections) ---
@@ -33,7 +135,19 @@ export const useSwsmStore = defineStore('swsm', {
       { id: 'sec_mars_bio', worldId: 'mars_outpost', name: 'Біосферний відсік' },
       { id: 'sec_mars_power', worldId: 'mars_outpost', name: 'Реакторна зона' },
       { id: 'sec_mars_canyon', worldId: 'mars_outpost', name: 'Червоний каньйон' },
-      { id: 'sec_mars_comm', worldId: 'mars_outpost', name: 'Радіощогла' }
+      { id: 'sec_mars_comm', worldId: 'mars_outpost', name: 'Радіощогла' },
+
+      // Земна орбіта
+      { id: 'sec_orbit_hub', worldId: 'earth_orbit', name: 'Орбітальний хаб' },
+      { id: 'sec_orbit_ring', worldId: 'earth_orbit', name: 'Кільцева ферма' },
+
+      // Місячні світи
+      { id: 'sec_moon_colony', worldId: 'moon_colonies', name: 'Купольне місто' },
+      { id: 'sec_moon_darkside', worldId: 'moon_dark', name: 'Тіньовий масив' },
+
+      // Зовнішня експансія
+      { id: 'sec_europa_base', worldId: 'europa_ocean', name: 'Підлідний шлюз' },
+      { id: 'sec_titan_port', worldId: 'titan_refinery', name: 'Метановий порт' },
     ],
 
     // --- МІСІЇ (Missions) ---
@@ -66,7 +180,19 @@ export const useSwsmStore = defineStore('swsm', {
       { id: 'm_mars_5', sectionId: 'sec_mars_main', title: 'Лабораторний аналіз', desc: 'Дослідіть зразки ґрунту.' },
       { id: 'm_mars_6', sectionId: 'sec_mars_main', title: 'Ровер', desc: 'Підготуйте транспорт до виїзду.' },
       { id: 'm_mars_7', sectionId: 'sec_mars_main', title: 'Сонячні панелі', desc: 'Очистіть панелі від піску.' },
-      { id: 'm_mars_8', sectionId: 'sec_mars_main', title: 'Евакуація', desc: 'Підготуйте план на випадок розгерметизації.' }
+      { id: 'm_mars_8', sectionId: 'sec_mars_main', title: 'Евакуація', desc: 'Підготуйте план на випадок розгерметизації.' },
+
+      // Земна орбіта
+      { id: 'm_orbit_1', sectionId: 'sec_orbit_hub', title: 'Стабілізація гіроскопів', desc: 'Синхронізуйте орбітальні кільця.' },
+      { id: 'm_orbit_2', sectionId: 'sec_orbit_ring', title: 'Монтаж секції', desc: 'Розгорніть новий конструкційний модуль.' },
+
+      // Місяць
+      { id: 'm_moon_1', sectionId: 'sec_moon_colony', title: 'Підтримка купола', desc: 'Вирівняйте тиск у житловому блоці.' },
+      { id: 'm_moon_2', sectionId: 'sec_moon_darkside', title: 'Тіньовий ретранслятор', desc: 'Поверніть звʼязок із зворотного боку.' },
+
+      // Зовнішня експансія
+      { id: 'm_europa_1', sectionId: 'sec_europa_base', title: 'Лід-скан', desc: 'Проскануйте шари підлідного океану.' },
+      { id: 'm_titan_1', sectionId: 'sec_titan_port', title: 'Метановий контур', desc: 'Відкалібруйте переробний контур.' },
     ],
 
     activeWorldId: 'earth',

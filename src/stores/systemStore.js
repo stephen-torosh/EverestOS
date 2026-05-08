@@ -50,14 +50,18 @@ export const useSystemStore = defineStore('system', {
       this.currentLanguage = lang
       localStorage.setItem('language', lang)
     },
+    setAnimationsEnabled(enabled) {
+      this.animationsEnabled = enabled
+      localStorage.setItem('animations', enabled.toString())
+    },
     toggleAnimations() {
-      this.animationsEnabled = !this.animationsEnabled
-      localStorage.setItem('animations', this.animationsEnabled)
+      this.setAnimationsEnabled(!this.animationsEnabled)
     },
     initThemeListener() {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
       mediaQuery.addEventListener('change', () => {
         if (this.systemTheme === 'system') {
+          localStorage.setItem('theme', 'system')
         }
       })
     },

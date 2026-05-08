@@ -5,6 +5,7 @@ import AvailableMissionsView from '../views/MissionsView.vue'
 import TheoCoreView from '../views/TheoCoreView.vue' // TEO Core
 import AdvancementsView from '../views/AdvancementsView.vue'
 import StagesnWorldsView from '../views/Stages&WorldsView.vue'
+import UserProfileView from '../views/UserProfileView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -38,6 +39,12 @@ const router = createRouter({
       name: 'stages',
       component: StagesnWorldsView,
       meta: { title: 'menu.stages' },
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: UserProfileView,
+      meta: { title: 'menu.profile' },
     },
   ],
 })
