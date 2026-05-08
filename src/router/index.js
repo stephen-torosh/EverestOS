@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import LimbusView from '../views/DashboardView.vue'
-import AvailableMissionsView from '../views/AvailableMissionsView.vue'
+import AvailableMissionsView from '../views/MissionsView.vue'
 import TheoCoreView from '../views/TheoCoreView.vue' // TEO Core
 import AdvancementsView from '../views/AdvancementsView.vue'
 import StagesnWorldsView from '../views/Stages&WorldsView.vue'
@@ -13,37 +13,42 @@ const router = createRouter({
       path: '/',
       name: 'limbus',
       component: LimbusView,
-      meta: { title: 'Everest OS - Dashboard' },
+      meta: { title: 'menu.dashboard' },
     },
     {
       path: '/theo-core',
       name: 'theo-core',
       component: TheoCoreView,
-      meta: { title: 'Everest OS - Theo Core' },
+      meta: { title: 'menu.operations' },
     },
     {
       path: '/missions',
       name: 'missions',
       component: AvailableMissionsView,
-      meta: { title: 'Everest OS - Missions' },
+      meta: { title: 'menu.missions' },
     },
     {
-      path: '/advancements',
-      name: 'advancements',
+      path: '/achievements',
+      name: 'achievements',
       component: AdvancementsView,
-      meta: { title: 'Everest OS - Advancements' },
+      meta: { title: 'menu.advancements' },
     },
     {
       path: '/stages',
       name: 'stages',
       component: StagesnWorldsView,
-      meta: { title: 'Everest OS - Stages & Worlds' },
+      meta: { title: 'menu.stages' },
     },
   ],
 })
 
+import { useSystemStore } from '@/stores/systemStore'
+
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title || 'Everest OS'
+  const systemStore = useSystemStore()
+  const titleKey = to.meta?.title
+  if (titleKey) document.title = `Everest OS - ${systemStore.t(titleKey)}`
+  else document.title = 'Everest OS'
   next()
 })
 

@@ -1,94 +1,102 @@
 import { engine } from '@/utils/masterEngine'
 import * as THREE from 'three'
+import * as CANNON from 'cannon-es'
 
+// Minimal scene: only an autonomous car (chassis + 4 visual wheels),
+// a directional sun, a hidden ground physics body, and a follow camera.
 export const startTestMission = () => {
-  // 1. АТМОСФЕРА — Робимо її світлішою (Яскравий помаранчевий)
-  engine.scene.background = new THREE.Color(0xd67b2d)
-  engine.scene.fog = new THREE.FogExp2(0xd67b2d, 0.005)
+  // Clear any previous scene
+  engine.stop()
 
-  // 2. СОНЦЕ — Піднімаємо інтенсивність, щоб "пробити" туман
-  const sun = new engine.Entity('BrightSun')
-  const sunLight = new THREE.DirectionalLight(0xffccaa, 4) // Дуже яскраве
-  sunLight.position.set(-200, 100, -400)
-  sun.object3d.add(sunLight)
+  // Atmosphere (dark neutral)
+  engine.scene.background = new THREE.Color(0x071428)
+  engine.scene.fog = new THREE.FogExp2(0x071428, 0.0025)
 
-  // Додаємо Ambient, щоб тіні не були абсолютно чорними
-  const ambient = new THREE.AmbientLight(0xff7733, 0.5)
-  engine.scene.add(ambient)
+  // Directional sun
+  const sunLight = new THREE.DirectionalLight(0xfff1d6, 2.2)
+  sunLight.position.set(120, 200, 80)
+  sunLight.castShadow = true
+  sunLight.shadow.mapSize.width = 1024
+  sunLight.shadow.mapSize.height = 1024
+  engine.scene.add(sunLight)
 
-  // 3. ПІДЛОГА (Світло-рудий пісок)
-  const floor = new engine.Entity('RedDesert')
-  new floor.MeshRenderer([
+  // Hidden ground (physics only) so car has something to drive on
+  const groundBody = new CANNON.Body({ mass: 0 })
+  groundBody.addShape(new CANNON.Box(new CANNON.Vec3(200, 1, 200)))
+  groundBody.position.set(0, -2.5, 0)
+  engine.world.addBody(groundBody)
+
+  // Autonomous car entity (chassis + visual wheels)
+  const car = new engine.Entity('AutoCar')
+  new car.MeshRenderer([
+    // chassis
     {
       figure: 'box',
-      position: { x: 0, y: -5, z: 0 },
-      scale: { x: 4000, y: 1, z: 4000 },
+      position: { x: 0, y: 0.5, z: 0 },
       rotation: { x: 0, y: 0, z: 0 },
-      material: { color: 0xc4501e, roughness: 1 },
+      scale: { x: 4, y: 1.2, z: 6 },
+      material: { color: 0x3344cc, roughness: 0.4 },
     },
+    // visual wheels (cylinders) - local positions
+    { figure: 'cylinder', position: { x: -1.5, y: -0.4, z: -2.6 }, rotation: { x: 90, y: 0, z: 0 }, scale: { x: 0.9, y: 0.5, z: 0.9 }, material: { color: 0x111111, roughness: 1 } },
+    { figure: 'cylinder', position: { x: 1.5, y: -0.4, z: -2.6 }, rotation: { x: 90, y: 0, z: 0 }, scale: { x: 0.9, y: 0.5, z: 0.9 }, material: { color: 0x111111, roughness: 1 } },
+    { figure: 'cylinder', position: { x: -1.5, y: -0.4, z: 2.6 }, rotation: { x: 90, y: 0, z: 0 }, scale: { x: 0.9, y: 0.5, z: 0.9 }, material: { color: 0x111111, roughness: 1 } },
+    { figure: 'cylinder', position: { x: 1.5, y: -0.4, z: 2.6 }, rotation: { x: 90, y: 0, z: 0 }, scale: { x: 0.9, y: 0.5, z: 0.9 }, material: { color: 0x111111, roughness: 1 } },
   ])
+  car.transform.setPosition(0, 1.2, 0)
 
-  // 4. ГЕНЕРАЦІЯ "Стовпів" (Тонкі скелі вдалині)
-  const createPillar = (name, x, z, h) => {
-    const pillar = new engine.Entity(name)
-    new pillar.MeshRenderer([
-      {
-        figure: 'cylinder', // Або 'hexagon'
-        position: { x: 0, y: h / 2, z: 0 },
-        rotation: { x: 0, y: Math.random() * 3, z: 0 },
-        scale: { x: 2, y: h, z: 2 }, // Дуже тонкі
-        material: { color: 0x8a3a16, roughness: 1 },
-      },
-    ])
-    pillar.transform.setPosition(x, -5, z)
-  }
+  // Chassis physics body
+  const carRB = new car.Rigidbody(250)
+  carRB.attachColliderFromMesh()
+  carRB.body.position.set(car.object3d.position.x, car.object3d.position.y, car.object3d.position.z)
+  carRB.body.linearDamping = 0.7
+  carRB.body.angularDamping = 0.9
 
-  // Розкидаємо багато тонких скель по всьому горизонту
-  for (let i = 0; i < 60; i++) {
-    const x = (Math.random() - 0.5) * 1200
-    const z = -200 - Math.random() * 1500
-    createPillar(`Pillar_${i}`, x, z, 20 + Math.random() * 60)
-  }
+  // Camera attached to car for a driving view
+  const carCamEnt = new engine.Entity('CarCam')
+  const carCam = new carCamEnt.Camera(60)
+  carCam.offset.set(0, 5, 12)
+  carCamEnt.transform.setPosition(0, 0, 0)
 
-  // 5. ДЕТАЛІЗАЦІЯ ПІСКУ (Плоскі камінці як на фото)
-  for (let i = 0; i < 80; i++) {
-    const rock = new engine.Entity(`Debris_${i}`)
-    new rock.MeshRenderer([
-      {
-        figure: 'box',
-        position: { x: 0, y: 0, z: 0 },
-        scale: { x: 2 + Math.random() * 4, y: 0.2, z: 2 + Math.random() * 4 },
-        rotation: { x: 0, y: Math.random() * 360, z: 0 },
-        material: { color: 0x4d1f0c, roughness: 1 },
-      },
-    ])
-    // Рандомно розкидаємо перед камерою
-    rock.transform.setPosition((Math.random() - 0.5) * 300, -4.9, 150 - Math.random() * 400)
-  }
+  // Simple autonomous driving: move forward and avoid very near obstacles
+  const targetSpeed = 6
+  const maxPower = 300
+  const steerStrength = 4
+  const rayRange = 8
 
-  // 6. КУПОЛ (Трохи прозоріший)
-  const dome = new engine.Entity('MainBase')
-  const domeGeo = new THREE.SphereGeometry(25, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2)
-  const domeMat = new THREE.MeshStandardMaterial({
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.1,
-    metalness: 0.9,
-  })
-  dome.object3d.add(new THREE.Mesh(domeGeo, domeMat))
-  dome.transform.setPosition(0, -5, -80)
+  engine.onUpdate((dt) => {
+    // sample forward speed
+    const pos = new THREE.Vector3()
+    car.object3d.getWorldPosition(pos)
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(car.object3d.quaternion).normalize()
+    const vel = carRB.body.velocity
+    const speedForward = vel.x * forward.x + vel.y * forward.y + vel.z * forward.z
 
-  // 7. КАМЕРА
-  const camEnt = new engine.Entity('FinalCam')
-  const camComp = new camEnt.Camera(40)
-  camComp.offset.set(0, 0, 0)
+    // simple forward ray
+    const from = new CANNON.Vec3(pos.x, pos.y + 0.5, pos.z)
+    const to = new CANNON.Vec3(pos.x + forward.x * rayRange, pos.y + 0.5 + forward.y * rayRange, pos.z + forward.z * rayRange)
+    const res = new CANNON.RaycastResult()
+    engine.world.raycastClosest(from, to, {}, res)
 
-  engine.onUpdate(() => {
-    if (camComp.instance) {
-      camComp.instance.position.set(0, 8, 200)
-      camComp.instance.lookAt(0, 10, -300)
+    let steer = 0
+    let avoid = 0
+    if (res.hasHit) {
+      avoid = 1
+      // if obstacle ahead, try to turn slightly right
+      steer = 1
     }
+
+    // throttle
+    const need = targetSpeed - speedForward
+    const throttle = Math.max(Math.min(need * 5, 1), -0.3)
+    carRB.addLocalForce(0, 0, -throttle * maxPower * dt)
+
+    // steering torque
+    carRB.addTorque(0, steer * steerStrength * dt, 0)
+
+    // keep camera following car
+    carCamEnt.transform.setPosition(pos.x, pos.y, pos.z)
   })
 
-  engine.UI.log('✨ Атмосферна корекція завершена. Марс у зеніті.')
+  engine.UI.log('🚗 Car-only scene: chassis + 4 visual wheels (no other visible objects)')
 }

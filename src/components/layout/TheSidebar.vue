@@ -1,195 +1,124 @@
 <template>
-  <button
-    class="mobile-burger"
-    :class="{ 'is-active': isMobileOpen }"
-    @click="isMobileOpen = !isMobileOpen"
-  >
-    <div class="burger-line"></div>
-    <div class="burger-line"></div>
-    <div class="burger-line"></div>
-  </button>
-
-  <Transition name="fade">
-    <div v-if="isMobileOpen" class="sidebar-overlay" @click="isMobileOpen = false"></div>
-  </Transition>
-
-  <aside class="sidebar" :class="{ 'is-collapsed': isCollapsed, 'is-mobile-open': isMobileOpen }">
+  <aside class="sidebar" :class="{ 'is-collapsed': isCollapsed }">
     <div class="sidebar-inner">
+      <!-- HEADER -->
       <div class="sidebar-header">
         <div class="brand-wrapper">
           <div class="brand-logo">
-            <div class="logo-svg-wrapper">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M3 20L12 4L21 20H3Z"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M7 20L12 11L17 20"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                />
-                <circle cx="12" cy="4" r="2" fill="currentColor" />
-              </svg>
-            </div>
+            <svg viewBox="0 0 24 24" fill="none" class="logo-icon">
+              <path d="M3 20L12 4L21 20H3Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+            </svg>
           </div>
-          <div class="brand-details" v-if="!isCollapsed || isMobileOpen">
+          <div class="brand-details" v-if="!isCollapsed">
             <h1 class="brand-name">Everest<span class="accent-text">OS</span></h1>
             <div class="system-status">
-              <span class="status-indicator"></span>
+              <span class="status-dot"></span>
               <span class="status-label">{{ systemStore.t('system.online') }}</span>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- NAVIGATION -->
       <nav class="sidebar-nav custom-scroll">
         <div class="nav-group">
-          <div class="group-header" v-if="!isCollapsed || isMobileOpen">
-            <span class="group-title">{{ systemStore.t('system.operations') }}</span>
+          <div class="group-header" v-if="!isCollapsed">
+            <span class="group-title">{{ systemStore.t('menu.operations') }}</span>
             <div class="group-line"></div>
           </div>
-
-          <RouterLink
-            to="/"
-            class="nav-link"
-            @click="isMobileOpen = false"
-            v-tooltip="isCollapsed && !isMobileOpen ? systemStore.t('menu.dashboard') : ''"
-          >
-            <div class="nav-icon-wrapper">◎</div>
-            <span class="nav-text" v-if="!isCollapsed || isMobileOpen">{{
-              systemStore.t('menu.dashboard')
-            }}</span>
-            <div class="active-indicator"></div>
+          
+          <RouterLink to="/" class="nav-link">
+            <div class="nav-icon">◎</div>
+            <span v-if="!isCollapsed">{{ systemStore.t('menu.dashboard') }}</span>
           </RouterLink>
 
-          <RouterLink
-            to="/stages"
-            class="nav-link"
-            @click="isMobileOpen = false"
-            v-tooltip="isCollapsed && !isMobileOpen ? systemStore.t('menu.stages') : ''"
-          >
-            <div class="nav-icon-wrapper">◈</div>
-            <span class="nav-text" v-if="!isCollapsed || isMobileOpen">{{
-              systemStore.t('menu.stages')
-            }}</span>
-            <div class="active-indicator"></div>
+          <RouterLink to="/stages" class="nav-link">
+            <div class="nav-icon">◈</div>
+            <span v-if="!isCollapsed">{{ systemStore.t('menu.stages') }}</span>
           </RouterLink>
 
-          <RouterLink
-            to="/missions"
-            class="nav-link"
-            @click="isMobileOpen = false"
-            v-tooltip="isCollapsed && !isMobileOpen ? systemStore.t('menu.missions') : ''"
-          >
-            <div class="nav-icon-wrapper">▣</div>
-            <span class="nav-text" v-if="!isCollapsed || isMobileOpen">{{
-              systemStore.t('menu.missions')
-            }}</span>
-            <div class="active-indicator"></div>
+          <RouterLink to="/missions" class="nav-link">
+            <div class="nav-icon">▣</div>
+            <span v-if="!isCollapsed">{{ systemStore.t('menu.missions') }}</span>
           </RouterLink>
         </div>
 
-        <div class="nav-group spacer">
-          <div class="group-header" v-if="!isCollapsed || isMobileOpen">
-            <span class="group-title">{{ systemStore.t('system.evolution') }}</span>
+        <div class="nav-group" style="margin-top: 25px;">
+          <div class="group-header" v-if="!isCollapsed">
+            <span class="group-title">{{ systemStore.t('menu.evolution') }}</span>
             <div class="group-line"></div>
           </div>
-
-          <RouterLink
-            to="/advancements"
-            class="nav-link"
-            @click="isMobileOpen = false"
-            v-tooltip="isCollapsed && !isMobileOpen ? systemStore.t('menu.advancements') : ''"
-          >
-            <div class="nav-icon-wrapper">▤</div>
-            <span class="nav-text" v-if="!isCollapsed || isMobileOpen">{{
-              systemStore.t('menu.advancements')
-            }}</span>
-            <div class="active-indicator"></div>
+          <RouterLink to="/achievements" class="nav-link">
+            <div class="nav-icon">▤</div>
+            <span v-if="!isCollapsed">{{ systemStore.t('menu.advancements') }}</span>
           </RouterLink>
         </div>
       </nav>
 
+
+      <!-- FOOTER -->
       <div class="sidebar-footer">
-        <div class="user-profile" @click="handleProfileClick">
-          <div class="user-avatar-wrapper">
-            <div class="avatar-circle">UA</div>
+        <div class="user-profile">
+          <div class="avatar-circle">
+            UA
             <div class="online-badge"></div>
           </div>
-          <div class="user-meta" v-if="!isCollapsed || isMobileOpen">
-            <span class="user-display-name">{{ systemStore.t('user.name') }}</span>
-            <span class="user-status-rank">{{ systemStore.t('user.rank') }}</span>
-          </div>
+          
+        <div class="user-meta" v-if="!isCollapsed">
+          <span class="user-name">{{ systemStore.t('user.name') }}</span>
+          <span class="user-rank">{{ systemStore.t('user.rank') }}</span>
         </div>
-
-        <button
-          class="sidebar-action-btn settings-trigger"
-          @click="isSettingsOpen = true"
-          v-tooltip="isCollapsed && !isMobileOpen ? systemStore.t('settings.title') : ''"
-        >
-          <span class="icon-gear">⚙️</span>
+        </div>
+        <!-- КНОПКА, ЩО ВІДКРИВАЄ НАЛАШТУВАННЯ -->
+        <button class="settings-btn" @click="isSettingsOpen = true" :title="systemStore.t('settings.title')">
+          ⚙️
         </button>
       </div>
     </div>
   </aside>
 
-  <BaseModal
-    v-if="isSettingsOpen"
-    :show="isSettingsOpen"
-    :title="systemStore.t('settings.title')"
+  <!-- МОДАЛЬНЕ ВІКНО НАЛАШТУВАНЬ -->
+  <!-- Переконайся, що BaseModal підтримує пропс :show або використовуй v-if -->
+  <!-- МОДАЛЬНЕ ВІКНО НАЛАШТУВАНЬ -->
+  <BaseModal 
+    :show="isSettingsOpen" 
+    titlePath="settings.title" 
     @close="isSettingsOpen = false"
   >
     <div class="settings-container">
+      <!-- Вибір мови -->
       <div class="settings-row">
-        <div class="setting-info">
-          <span class="setting-label">{{ systemStore.t('settings.language') }}</span>
-        </div>
-        <BaseSelectGroup
-          v-model="systemStore.currentLanguage"
-          :options="[
-            { label: '🇺🇦 UA', value: 'ua' },
-            { label: '🇺🇸 EN', value: 'en' },
-            { label: '🇵🇱 PL', value: 'pl' },
-            { label: '🇩🇪 DE', value: 'de' },
-          ]"
-          @update:modelValue="systemStore.setLanguage"
+        <span class="setting-label">{{ systemStore.t('settings.language') }}</span>
+        <BaseSelectGroup 
+          v-model="systemStore.currentLanguage" 
+          :options="languageOptions" 
         />
       </div>
 
+      <!-- Вибір теми -->
       <div class="settings-row">
-        <div class="setting-info">
-          <span class="setting-label">{{ systemStore.t('settings.theme') }}</span>
-        </div>
-        <BaseSelectGroup
-          v-model="systemStore.systemTheme"
-          :options="[
-            { label: 'settings.themset.dark', value: 'dark' },
-            { label: 'settings.themset.light', value: 'light' },
-            { label: 'settings.themset.system', value: 'system' },
-          ]"
-          @update:modelValue="systemStore.setSystemTheme"
+        <span class="setting-label">{{ systemStore.t('settings.theme') }}</span>
+        <BaseSelectGroup 
+          v-model="systemStore.systemTheme" 
+          :options="themeOptions" 
         />
       </div>
 
+      <!-- Вибір акценту -->
       <div class="settings-row">
-        <div class="setting-info">
-          <span class="setting-label">{{ systemStore.t('settings.accent') }}</span>
-        </div>
-        <BaseAccentPicker
-          v-model="systemStore.accentColor"
-          @update:modelValue="systemStore.setAccentColor"
+        <span class="setting-label">{{ systemStore.t('settings.accent') }}</span>
+        <BaseAccentPicker 
+          v-model="systemStore.accentColor" 
         />
       </div>
-
-      <div class="settings-row inline">
-        <div class="setting-info">
-          <span class="setting-label">{{ systemStore.t('settings.performance') }}</span>
+      
+      <div class="settings-row-inline">
+        <span class="setting-label">{{ systemStore.t('settings.performance') }}</span>
+        <div class="toggle-placeholder">
+          <span :style="{ color: systemStore.animationsEnabled ? 'var(--accent-color)' : 'gray' }">
+            {{ systemStore.animationsEnabled ? 'ON' : 'OFF' }}
+          </span>
         </div>
-        <BaseToggle v-model="systemStore.animationsEnabled" />
       </div>
     </div>
   </BaseModal>
@@ -197,365 +126,137 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useSystemStore } from '@/stores/systemStore'
 
+// Імпортуємо всі необхідні компоненти
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelectGroup from '@/components/ui/BaseSelectGroup.vue'
-import BaseToggle from '@/components/ui/BaseToggle.vue'
 import BaseAccentPicker from '@/components/ui/BaseAccentPicker.vue'
 
-const router = useRouter()
 const systemStore = useSystemStore()
 
+// Стан модалки
 const isSettingsOpen = ref(false)
 const isCollapsed = ref(false)
-const isMobileOpen = ref(false)
 
-const handleProfileClick = () => {
-  router.push('/profile')
-  isMobileOpen.value = false
-}
+// Опції мов з іконками-прапорами (для Windows)
+const languageOptions = [
+  { label: 'UA UA', value: 'ua', icon: 'https://flagcdn.com/w40/ua.png' },
+  { label: 'US EN', value: 'en', icon: 'https://flagcdn.com/w40/us.png' },
+  { label: 'PL PL', value: 'pl', icon: 'https://flagcdn.com/w40/pl.png' },
+  { label: 'DE DE', value: 'de', icon: 'https://flagcdn.com/w40/de.png' }
+]
+
+const themeOptions = [
+  { label: systemStore.t('settings.themset.dark'), value: 'dark' },
+  { label: systemStore.t('settings.themset.light'), value: 'light' },
+  { label: systemStore.t('settings.themset.system'), value: 'system' },
+]
 </script>
 
 <style scoped>
+/* ОСНОВНИЙ САЙДБАР */
 .sidebar {
   width: 280px;
   height: 100vh;
-  background-color: var(--bg-sidebar);
+  background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   position: fixed;
-  top: 0;
   left: 0;
+  top: 0;
   z-index: 100;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sidebar.is-collapsed {
-  width: 80px;
-}
+.sidebar.is-collapsed { width: 80px; }
 
 .sidebar-inner {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 30px 20px;
+  padding: 30px 24px;
   box-sizing: border-box;
 }
 
-/* BURGER */
-.mobile-burger {
-  display: none;
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-  width: 48px;
-  height: 48px;
-  background: var(--accent-color);
-  border: none;
-  border-radius: 12px;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  box-shadow: 0 4px 15px var(--accent-soft);
+/* HEADER & STATUS */
+.sidebar-header { margin-bottom: 40px; }
+.brand-wrapper { display: flex; align-items: center; gap: 14px; }
+.brand-logo { 
+  width: 44px; height: 44px; background: var(--accent-color); border-radius: 12px; 
+  display: flex; align-items: center; justify-content: center; color: #000; flex-shrink: 0;
 }
+.logo-icon { width: 24px; }
+.brand-name { font-size: 22px; font-weight: 850; margin: 0; color: var(--text-primary); letter-spacing: -0.5px; }
+.accent-text { color: var(--accent-color); }
 
-.burger-line {
-  width: 22px;
-  height: 2px;
-  background: #000;
-  border-radius: 2px;
-  transition: 0.3s;
+.system-status { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.status-dot {
+  width: 8px; height: 8px; background: #22c55e; border-radius: 50%;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
 }
-.mobile-burger.is-active .burger-line:nth-child(1) {
-  transform: translateY(7px) rotate(45deg);
-}
-.mobile-burger.is-active .burger-line:nth-child(2) {
-  opacity: 0;
-}
-.mobile-burger.is-active .burger-line:nth-child(3) {
-  transform: translateY(-7px) rotate(-45deg);
-}
-
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  z-index: 90;
-}
-
-/* HEADER */
-.sidebar-header {
-  margin-bottom: 45px;
-}
-.brand-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.brand-logo {
-  width: 42px;
-  height: 42px;
-  background: var(--accent-color);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px var(--accent-soft);
-  flex-shrink: 0;
-  color: #000;
-}
-.logo-svg-wrapper {
-  width: 26px;
-  height: 26px;
-}
-.brand-name {
-  font-size: 22px;
-  font-weight: 850;
-  margin: 0;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
-}
-.accent-text {
-  color: var(--accent-color);
-}
-.system-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-.status-indicator {
-  width: 6px;
-  height: 6px;
-  background: var(--accent-color);
-  border-radius: 50%;
-  box-shadow: 0 0 8px var(--accent-color);
-}
-.status-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  letter-spacing: 1px;
-}
+.status-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); opacity: 0.8; }
 
 /* NAVIGATION */
-.sidebar-nav {
-  flex: 1;
-  overflow-y: auto;
-  margin: 0 -10px;
-  padding: 0 10px;
-}
-.nav-group {
-  margin-bottom: 30px;
-}
-.group-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
-  padding-left: 10px;
-}
-.group-title {
-  font-size: 11px;
-  font-weight: 900;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  opacity: 0.5;
-}
-.group-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border-color);
-  opacity: 0.5;
-}
+.sidebar-nav { flex: 1; overflow-y: auto; margin: 0 -10px; padding: 0 10px; }
+.group-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 10px; }
+.group-title { font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; opacity: 0.5; }
+.group-line { flex: 1; height: 1px; background: var(--border-color); }
 
 .nav-link {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px 15px;
-  border-radius: 14px;
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition: all 0.25s ease;
-  margin-bottom: 5px;
-  position: relative;
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  border-radius: 12px; color: var(--text-secondary); text-decoration: none;
+  margin-bottom: 4px; transition: 0.2s;
 }
-.nav-link:hover {
-  background: var(--glass-bg);
-  color: var(--text-primary);
-}
-.nav-link.router-link-active {
-  background: var(--accent-soft);
-  color: var(--accent-color);
-}
-.nav-icon-wrapper {
-  font-size: 20px;
-  width: 24px;
-  text-align: center;
-}
-.nav-text {
-  font-size: 15px;
-  font-weight: 600;
-}
-.active-indicator {
-  position: absolute;
-  left: 0;
-  width: 4px;
-  height: 0;
-  background: var(--accent-color);
-  border-radius: 0 4px 4px 0;
-  transition: 0.3s;
-}
-.router-link-active .active-indicator {
-  height: 20px;
-}
+.nav-link:hover { background: var(--glass-bg); color: var(--text-primary); }
+.nav-link.router-link-active { background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
+.nav-icon { font-size: 20px; width: 24px; text-align: center; }
 
-/* FOOTER */
-.sidebar-footer {
-  padding-top: 20px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px; /* Додав gap для безпеки */
+/* FOOTER & USER */
+.sidebar-footer { 
+  margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color); 
+  display: flex; align-items: center; justify-content: space-between; 
 }
+.user-profile { display: flex; align-items: center; gap: 12px; }
+.avatar-circle { 
+  width: 40px; height: 40px; background: var(--glass-bg); border-radius: 50%; 
+  display: flex; align-items: center; justify-content: center; font-weight: 800; 
+  color: var(--accent-color); position: relative; font-size: 13px;
+}
+.online-badge { 
+  width: 10px; height: 10px; background: #22c55e; border: 2px solid var(--bg-sidebar); 
+  border-radius: 50%; position: absolute; bottom: 0; right: 0; 
+}
+.user-name { font-size: 14px; font-weight: 700; color: var(--text-primary); display: block; line-height: 1.2; }
+.user-rank { font-size: 11px; color: var(--text-secondary); }
 
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  flex: 1;
-  min-width: 0;
+.settings-btn { 
+  background: none; border: none; font-size: 20px; cursor: pointer; 
+  opacity: 0.6; transition: 0.3s; padding: 5px;
 }
-.avatar-circle {
-  width: 40px;
-  height: 40px;
-  background: var(--glass-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  color: var(--accent-color);
-  position: relative;
-  flex-shrink: 0;
-}
-.online-badge {
-  width: 10px;
-  height: 10px;
-  background: #22c55e;
-  border: 2px solid var(--bg-sidebar);
-  border-radius: 50%;
-  position: absolute;
-  bottom: 0;
-  right: 0;
-}
+.settings-btn:hover { opacity: 1; transform: rotate(45deg); }
 
-.user-meta {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.user-display-name {
-  font-size: 14px;
-  font-weight: 750;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.user-status-rank {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* МОДАЛКА КОНТЕЙНЕР */
+.settings-container { display: flex; flex-direction: column; gap: 24px; padding: 15px 5px; }
+.settings-row { display: flex; flex-direction: column; gap: 10px; }
+.settings-row-inline { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: var(--glass-bg); border-radius: 12px; }
+.setting-label { font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
 
-.sidebar-action-btn {
-  background: none;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-  border-radius: 10px;
-  transition: 0.3s;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.sidebar-action-btn:hover {
-  background: var(--glass-bg);
-  color: var(--text-primary);
-  transform: rotate(15deg);
-}
+.custom-scroll::-webkit-scrollbar { width: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
-/* SETTINGS MODAL INTERNAL STYLE */
-.settings-container {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  padding: 10px 0;
-}
-.settings-row {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.settings-row.inline {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--glass-bg);
-  padding: 15px;
-  border-radius: 16px;
-}
-.setting-label {
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-secondary);
-}
-
-/* MEDIA QUERIES */
-@media (max-width: 768px) {
-  .mobile-burger {
-    display: flex;
-  }
+/* Мобільна адаптація */
+@media (max-width: 1024px) {
   .sidebar {
-    left: -280px;
-    width: 280px !important;
+    /* Ховаємо його вліво за межі екрану */
+    transform: translateX(-100%);
+    /* Можна додати плавний виїзд, якщо потім захочеш зробити кнопку "бургер" */
+    transition: transform 0.3s ease;
   }
+
+  /* Якщо ти захочеш відкрити його на мобілці, 
+     додамо клас, який повертатиме його на місце */
   .sidebar.is-mobile-open {
-    left: 0;
-    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+    transform: translateX(0);
   }
-
-  :deep(.modal-content) {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-width: none !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-  }
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>

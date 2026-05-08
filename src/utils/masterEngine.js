@@ -93,6 +93,9 @@ class MasterEngine {
               )
               mesh.scale.set(data.scale.x, data.scale.y, data.scale.z)
 
+              // enable shadows by default for nicer visuals
+              mesh.castShadow = true
+              mesh.receiveShadow = true
               self.object3d.add(mesh)
               this.parts.push(mesh)
             })
@@ -122,6 +125,10 @@ class MasterEngine {
             })
 
             engine.world.addBody(this.body)
+            // Debug: log body creation to help trace duplicates
+            try {
+              engine.UI.log(`Rigidbody created mass=${this.body.mass} id=${this.body.id}`)
+            } catch (err) {}
             self.components.rigidbody = this
           }
 
@@ -271,14 +278,30 @@ class MasterEngine {
           }
         }
 
-        // ПУНКТ 2 ВІД КЛОДА: SENSOR / MEASUREMENT
+        // SENSOR / MEASUREMENT: raycast forward from entity using Three -> Cannon conversion
         this.raycastForward = (range = 100) => {
-          const start = new CANNON.Vec3().copy(this.object3d.position)
-          const dir = this.object3d.quaternion.vmult(new THREE.Vector3(0, 0, -1))
-          const end = start.add(dir.scale(range))
+          const origin = new THREE.Vector3()
+          self.object3d.getWorldPosition(origin)
+
+          // forward direction in world space
+          const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(self.object3d.quaternion).normalize()
+
+          // convert to CANNON vectors
+          const from = new CANNON.Vec3(origin.x, origin.y, origin.z)
+          const to = new CANNON.Vec3(origin.x + dir.x * range, origin.y + dir.y * range, origin.z + dir.z * range)
+
           const result = new CANNON.RaycastResult()
-          engine.world.raycastClosest(start, end, {}, result)
-          return result.hasHit ? result.distance : null
+          engine.world.raycastClosest(from, to, {}, result)
+
+          if (!result.hasHit) return null
+
+          // compute distance from origin to hit point
+          const hp = result.hitPointWorld || result.hitPoint || null
+          if (!hp) return null
+          const dx = hp.x - from.x
+          const dy = hp.y - from.y
+          const dz = hp.z - from.z
+          return Math.sqrt(dx * dx + dy * dy + dz * dz)
         }
 
         engine.entities.push(this)
@@ -288,11 +311,33 @@ class MasterEngine {
 
   // ВНУТРІШНІ МЕТОДИ (Helpers)
   _setupSystemEvents() {
-    window.addEventListener('keydown', (e) => (this.input.keys[e.code] = true))
-    window.addEventListener('keyup', (e) => (this.input.keys[e.code] = false))
+    window.addEventListener('keydown', (e) => {
+      this.input.keys[e.code] = true
+      // small debug trace for input issues
+      if (typeof console !== 'undefined' && console.debug) console.debug('[Engine] keydown', e.code)
+      // show WASD presses in UI for quick verification
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+        try {
+          this.UI.log(`[input] keydown ${e.code}`)
+        } catch (err) {}
+      }
+    })
+    window.addEventListener('keyup', (e) => {
+      this.input.keys[e.code] = false
+      if (typeof console !== 'undefined' && console.debug) console.debug('[Engine] keyup', e.code)
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+        try {
+          this.UI.log(`[input] keyup ${e.code}`)
+        } catch (err) {}
+      }
+    })
     window.addEventListener('mousemove', (e) => {
       this.input.mouse.x = (e.clientX / window.innerWidth) * 2 - 1
       this.input.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
+    })
+    // Clear keys when window loses focus to avoid stuck keys
+    window.addEventListener('blur', () => {
+      this.input.keys = {}
     })
   }
 
@@ -321,6 +366,11 @@ class MasterEngine {
     this.updateCallbacks.push(fn)
   }
 
+  // Convenience: stable isKeyDown method to query input state
+  isKeyDown(code) {
+    return this.input.keys[code] || false
+  }
+
   UI = {
     set: (key, val) => {
       this.UIStore.modules[key] = val
@@ -340,6 +390,9 @@ class MasterEngine {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
     this.renderer.setSize(container.clientWidth, container.clientHeight)
     this.renderer.setPixelRatio(window.devicePixelRatio)
+    // Enable shadow map for nicer lighting when directional lights are used
+    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     container.appendChild(this.renderer.domElement)
     this.animate()
   }
@@ -368,16 +421,39 @@ class MasterEngine {
       if (e.components.camera) e.components.camera.update()
     })
 
-    if (this.activeCamera) this.renderer.render(this.scene, this.activeCamera)
+    // Only render when renderer and activeCamera are available
+    if (this.renderer && this.activeCamera) {
+      try {
+        this.renderer.render(this.scene, this.activeCamera)
+      } catch (err) {
+        // Log and swallow render errors to avoid noisy pageErrors
+        try {
+          this.UI.log(`render error: ${err?.message || err}`)
+        } catch (e) {}
+      }
+    }
   }
 
   stop() {
+    // Pause the loop while we clear scene and physics
     this.isPaused = true
     this.entities = []
     this.updateCallbacks = []
     while (this.scene.children.length > 0) {
       this.scene.remove(this.scene.children[0])
     }
+    // Clear physics world bodies to avoid duplicates on re-init
+    if (this.world && Array.isArray(this.world.bodies)) {
+      for (let i = this.world.bodies.length - 1; i >= 0; i--) {
+        try {
+          this.world.removeBody(this.world.bodies[i])
+        } catch (err) {}
+      }
+    }
+
+    // Resume animation loop so new missions can run immediately (only if renderer exists)
+    this.isPaused = false
+    if (this.renderer) this.animate()
   }
 }
 
