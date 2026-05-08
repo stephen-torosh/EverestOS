@@ -52,6 +52,10 @@
             <div class="nav-icon">▤</div>
             <span v-if="!isCollapsed">{{ systemStore.t('menu.advancements') }}</span>
           </RouterLink>
+          <RouterLink to="/incubator" class="nav-link" @click="handleNavClick">
+            <div class="nav-icon">⟡</div>
+            <span v-if="!isCollapsed">{{ systemStore.t('menu.incubator') }}</span>
+          </RouterLink>
         </div>
       </nav>
 

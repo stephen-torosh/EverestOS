@@ -34,12 +34,18 @@
       @close-mobile="closeMobileMenu"
     />
     <main class="main-content">
-      <RouterView v-slot="{ Component, route: activeRoute }">
-        <Transition v-if="systemStore.animationsEnabled" name="route-warp" mode="out-in">
-          <component :is="Component" :key="activeRoute.fullPath" />
-        </Transition>
-        <component :is="Component" v-else :key="activeRoute.fullPath" />
-      </RouterView>
+      <div class="route-shell">
+        <RouterView v-slot="{ Component, route: activeRoute }">
+          <Transition v-if="systemStore.animationsEnabled" name="route-pulse" mode="out-in">
+            <div :key="activeRoute.fullPath" class="route-frame">
+              <component :is="Component" />
+            </div>
+          </Transition>
+          <div v-else :key="activeRoute.fullPath" class="route-frame">
+            <component :is="Component" />
+          </div>
+        </RouterView>
+      </div>
     </main>
   </div>
 </template>
@@ -362,6 +368,7 @@ body::after {
   position: relative;
   isolation: isolate;
   box-sizing: border-box;
+  contain: layout paint;
 }
 
 .main-content::before {
@@ -380,21 +387,86 @@ body::after {
   content: none;
 }
 
-.route-warp-enter-active,
-.route-warp-leave-active {
+.route-shell {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+.route-frame {
+  position: relative;
+  height: 100%;
+  isolation: isolate;
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+.route-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: min(22vw, 180px);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-color) 18%, transparent) 0%,
+    color-mix(in srgb, var(--accent-color) 7%, transparent) 42%,
+    transparent 100%
+  );
+  transform: translate3d(-115%, 0, 0);
+}
+
+.route-pulse-enter-active,
+.route-pulse-leave-active {
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+.route-pulse-enter-active {
   transition:
-    opacity 0.34s var(--motion-ease),
-    transform 0.34s var(--motion-ease);
+    opacity 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.route-warp-enter-from {
-  opacity: 0;
-  transform: translateY(10px) scale(0.992);
+.route-pulse-enter-active::before {
+  animation: route-accent-sweep 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.route-warp-leave-to {
+.route-pulse-leave-active {
+  transition: opacity 0.1s linear;
+}
+
+.route-pulse-enter-from {
   opacity: 0;
-  transform: translateY(-8px) scale(0.994);
+  transform: translate3d(0, 16px, 0);
+}
+
+.route-pulse-enter-to,
+.route-pulse-leave-from {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.route-pulse-leave-to {
+  opacity: 0;
+}
+
+@keyframes route-accent-sweep {
+  0% {
+    opacity: 0;
+    transform: translate3d(-115%, 0, 0);
+  }
+
+  18% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(190%, 0, 0);
+  }
 }
 
 .app-root:has(.sidebar.is-collapsed) .main-content { margin-left: 80px; }
@@ -424,6 +496,40 @@ body::after {
   body::after {
     width: 42vw;
     right: -16vw;
+  }
+
+  .route-pulse-enter-active {
+    transition-duration: 0.18s;
+  }
+
+  .route-pulse-leave-active {
+    transition-duration: 0.08s;
+  }
+
+  .route-pulse-enter-from {
+    transform: translate3d(0, 10px, 0);
+  }
+
+  .route-pulse-enter-active::before {
+    animation-duration: 0.26s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-pulse-enter-active,
+  .route-pulse-leave-active {
+    transition-duration: 0.01ms;
+  }
+
+  .route-pulse-enter-from,
+  .route-pulse-enter-to,
+  .route-pulse-leave-from,
+  .route-pulse-leave-to {
+    transform: none;
+  }
+
+  .route-pulse-enter-active::before {
+    animation: none;
   }
 }
 </style>

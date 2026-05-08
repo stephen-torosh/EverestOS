@@ -1,20 +1,74 @@
 <template>
   <div class="stages-page">
     <div class="map-layout">
+      <button
+        v-if="mobileOverlayVisible"
+        class="mobile-overlay"
+        type="button"
+        :aria-label="systemStore.t('stagesView.closePanel')"
+        @click="closeMobilePanels"
+      ></button>
+
+      <aside class="explorer-panel" :class="{ 'is-open': explorerOpen, 'is-mobile': isMobileView }">
+        <div class="explorer-inner">
+          <div class="explorer-head">
+            <div>
+              <BaseText tag="h2" size="lg" weight="bold">{{ systemStore.t('stagesView.explorerTitle') }}</BaseText>
+              <BaseText size="xs" color="secondary">{{ systemStore.t('stagesView.explorerSubtitle') }}</BaseText>
+            </div>
+            <button class="panel-close" :aria-label="systemStore.t('stagesView.closeExplorer')" @click="toggleExplorer">
+              ✕
+            </button>
+          </div>
+
+          <div class="explorer-scroll">
+            <article class="overview-card">
+              <BaseText size="xs" weight="bold" color="secondary" class="caps">
+                {{ systemStore.t('stagesView.overviewTitle') }}
+              </BaseText>
+              <BaseText size="md" weight="bold">{{ store.overview.title }}</BaseText>
+              <BaseText size="sm">{{ store.overview.summary }}</BaseText>
+              <BaseText size="sm" color="secondary">{{ store.overview.detail }}</BaseText>
+            </article>
+
+            <article v-for="chapter in chapterCards" :key="chapter.id" class="explorer-card chapter-card">
+              <button class="explorer-card-button" @click="selectStage(chapter.id, { force: true })">
+                <div class="explorer-card-top">
+                  <BaseText size="xs" weight="bold" color="secondary" class="caps">
+                    {{ systemStore.t('stagesView.chapterLabel') }}
+                  </BaseText>
+                  <span class="card-badge">{{ chapter.worlds.length }}</span>
+                </div>
+                <BaseText size="md" weight="bold">{{ chapter.title }}</BaseText>
+                <BaseText size="sm" color="secondary">{{ chapter.locationLabel }}</BaseText>
+                <BaseText size="sm">{{ chapter.summary }}</BaseText>
+              </button>
+
+              <div class="explorer-world-list">
+                <button
+                  v-for="world in chapter.worlds"
+                  :key="world.id"
+                  class="explorer-world-card"
+                  @click="selectWorld(world.id, { force: true })"
+                >
+                  <div class="explorer-world-head">
+                    <strong>{{ world.name }}</strong>
+                    <span class="world-tag">{{ world.mapTag }}</span>
+                  </div>
+                  <small>{{ world.locationLabel }}</small>
+                  <span>{{ world.summary }}</span>
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </aside>
+
       <section class="map-pane">
         <header class="map-toolbar">
           <div class="toolbar-copy">
-            <BaseText tag="h1" size="h1" weight="bold">{{ systemStore.t('stagesView.title') }}</BaseText>
-            <BaseText size="sm" color="secondary">{{ systemStore.t('stagesView.subtitle') }}</BaseText>
-          </div>
-
-          <div class="toolbar-meta">
-            <BaseText size="xs" color="secondary">
-              {{ interactionHint }}
-            </BaseText>
-            <BaseButton variant="outline" size="sm" @click="resetCamera">
-              Reset View
-            </BaseButton>
+            <BaseText tag="h1" size="lg" weight="bold">{{ systemStore.t('stagesView.title') }}</BaseText>
+            <BaseText class="toolbar-subtitle" size="xs" color="secondary">{{ systemStore.t('stagesView.subtitle') }}</BaseText>
           </div>
         </header>
 
@@ -29,7 +83,7 @@
           @wheel.prevent="onWheel"
           @dblclick="onDoubleClick"
         >
-          <svg class="solar-map" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" aria-label="Stages and Worlds">
+          <svg class="solar-map" viewBox="0 0 1600 900" :preserveAspectRatio="mapPreserveAspectRatio" aria-label="Stages and Worlds">
             <defs>
               <radialGradient id="planet-sun" cx="35%" cy="35%">
                 <stop offset="0%" stop-color="#fff6bf" />
@@ -156,9 +210,16 @@
                   :r="body.displayRadius * 0.22"
                 />
 
-                <text class="body-label" text-anchor="middle" :x="0" :y="body.labelOffset">
-                  {{ body.label }}
-                </text>
+                  <text
+                    v-if="isBodyLabelVisible(body)"
+                    class="body-label"
+                    text-anchor="middle"
+                    :x="0"
+                    :y="getBodyLabelOffset(body)"
+                    :style="getBodyLabelStyle(body)"
+                  >
+                    {{ truncateLabel(body.label, 12) }}
+                  </text>
               </g>
 
               <g v-if="showStageClusters" class="cluster-layer">
@@ -168,12 +229,20 @@
                   class="stage-cluster"
                   :class="{ 'is-active': selectedStage?.id === cluster.id }"
                   :transform="`translate(${cluster.x} ${cluster.y})`"
+                  @mouseenter="hoveredStageId = cluster.id"
+                  @mouseleave="hoveredStageId = null"
+                  @pointerdown.stop
                   @click.stop="selectStage(cluster.id)"
                 >
-                  <circle class="stage-cluster-ring" r="34" />
-                  <circle class="stage-cluster-core" r="24" />
-                  <text class="stage-cluster-index" text-anchor="middle" y="-2">{{ cluster.order }}</text>
-                  <text class="stage-cluster-count" text-anchor="middle" y="17">{{ cluster.worlds.length }}</text>
+                  <circle class="stage-cluster-hit" :r="getStageClusterHitRadius(cluster.id)" />
+                  <circle class="stage-cluster-ring" :r="getStageClusterRingRadius(cluster.id)" />
+                  <circle class="stage-cluster-core" :r="getStageClusterCoreRadius(cluster.id)" />
+                  <text class="stage-cluster-index" text-anchor="middle" :y="getStageClusterIndexY(cluster.id)" :style="getStageClusterIndexStyle(cluster.id)">
+                    {{ cluster.order }}
+                  </text>
+                  <text class="stage-cluster-count" text-anchor="middle" :y="getStageClusterCountY(cluster.id)" :style="getStageClusterCountStyle(cluster.id)">
+                    {{ cluster.worlds.length }}
+                  </text>
                 </g>
               </g>
 
@@ -187,34 +256,61 @@
                     'is-muted': selectedStage && selectedStage.id !== world.chapterId,
                   }"
                   :transform="`translate(${world.x} ${world.y})`"
+                  @mouseenter="hoveredWorldId = world.id"
+                  @mouseleave="hoveredWorldId = null"
+                  @pointerdown.stop
                   @click.stop="selectWorld(world.id)"
                 >
-                  <circle class="world-node-ring" :r="world.nodeRadius + 5" />
-                  <circle class="world-node-core" :r="world.nodeRadius" />
-                  <text class="world-node-tag" text-anchor="middle" dominant-baseline="central">
+                  <circle class="world-node-hit" :r="getWorldNodeHitRadius(world)" />
+                  <circle class="world-node-ring" :r="getWorldNodeRingRadius(world)" />
+                  <circle class="world-node-core" :r="getWorldNodeCoreRadius(world)" />
+                  <text class="world-node-tag" text-anchor="middle" dominant-baseline="central" :style="pxStyle(getWorldNodeTextSize(world.id))">
                     {{ world.mapTag || buildMapTag(world.name) }}
                   </text>
                   <text
-                    v-if="showWorldLabels || selectedWorld?.id === world.id"
+                    v-if="isWorldLabelVisible(world)"
                     class="world-node-label"
-                    :x="world.labelX"
-                    :y="world.labelY"
+                    :x="getWorldLabelX(world)"
+                    :y="getWorldLabelY(world)"
                     :text-anchor="world.labelAnchor"
+                    :style="pxStyle(getWorldLabelSize(world.id))"
                   >
-                    {{ world.name }}
+                    {{ truncateLabel(world.name, 18) }}
                   </text>
                 </g>
               </g>
             </g>
           </svg>
 
+          <div class="map-controls">
+            <button class="map-control-button" type="button" :aria-label="systemStore.t('stagesView.resetView')" @click="resetCamera">
+              {{ systemStore.t('stagesView.resetView') }}
+            </button>
+            <button class="map-control-button map-control-button--icon" type="button" aria-label="Zoom out" @click="stepZoom(-1)">
+              -
+            </button>
+            <div class="map-zoom-pill">{{ zoomLabel }}</div>
+            <button class="map-control-button map-control-button--icon" type="button" aria-label="Zoom in" @click="stepZoom(1)">
+              +
+            </button>
+          </div>
+
           <div class="map-hint">
             <BaseText size="xs" color="secondary">{{ interactionHint }}</BaseText>
           </div>
+
+          <button
+            v-if="!explorerOpen"
+            class="explorer-rail"
+            type="button"
+            @click="toggleExplorer"
+          >
+            {{ systemStore.t('stagesView.openExplorer') }}
+          </button>
         </div>
       </section>
 
-      <aside v-if="isPanelOpen" class="detail-panel">
+      <aside class="detail-panel" :class="{ 'is-open': isPanelOpen, 'is-mobile': isMobileView }">
         <div class="detail-panel-inner">
           <div class="panel-head">
             <BaseText tag="h2" size="lg" weight="bold">{{ systemStore.t('stagesView.controlTitle') }}</BaseText>
@@ -229,6 +325,8 @@
                 <BaseText size="xs" weight="bold" color="secondary" class="caps">{{ systemStore.t('stagesView.activeStage') }}</BaseText>
                 <BaseText size="lg" weight="bold">{{ selectedStage.title }}</BaseText>
                 <BaseText size="sm" color="secondary">{{ selectedStage.locationLabel }}</BaseText>
+                <BaseText size="sm">{{ selectedStage.summary }}</BaseText>
+                <BaseText size="sm" color="secondary">{{ selectedStage.objective }}</BaseText>
               </div>
 
               <div class="panel-grid">
@@ -244,6 +342,10 @@
                   <span>{{ systemStore.t('stagesView.relatedMissions') }}</span>
                   <strong>{{ selectedStageMissionsCount }}</strong>
                 </div>
+                <div class="panel-metric">
+                  <span>{{ systemStore.t('stagesView.worldStatus') }}</span>
+                  <strong>{{ selectedStage.status }}</strong>
+                </div>
               </div>
 
               <div class="panel-block">
@@ -253,7 +355,7 @@
                     v-for="world in selectedStageWorlds"
                     :key="world.id"
                     class="list-item"
-                    @click="selectWorld(world.id)"
+                    @click="selectWorld(world.id, { force: true })"
                   >
                     <span>{{ world.name }}</span>
                     <small>{{ world.locationLabel || world.planet }}</small>
@@ -266,9 +368,10 @@
           <template v-else-if="selectedEntity?.type === 'world' && selectedWorld">
             <div class="panel-stack">
               <div class="panel-block">
-                <BaseText size="xs" weight="bold" color="secondary" class="caps">{{ systemStore.t('stagesView.activeWorld') }}</BaseText>
+                <BaseText size="xs" weight="bold" color="secondary" class="caps">{{ systemStore.t('stagesView.dossierTitle') }}</BaseText>
                 <BaseText size="lg" weight="bold">{{ selectedWorld.name }}</BaseText>
                 <BaseText size="sm" color="secondary">{{ selectedWorld.planet }} · {{ selectedWorld.locationLabel }}</BaseText>
+                <BaseText size="sm">{{ selectedWorld.summary }}</BaseText>
               </div>
 
               <div class="panel-grid">
@@ -284,6 +387,35 @@
                   <span>{{ systemStore.t('stagesView.relatedMissions') }}</span>
                   <strong>{{ selectedWorldMissions.length }}</strong>
                 </div>
+                <div class="panel-metric">
+                  <span>{{ systemStore.t('stagesView.worldStatus') }}</span>
+                  <strong>{{ selectedWorld.status }}</strong>
+                </div>
+              </div>
+
+              <div class="panel-block">
+                <BaseText size="sm" weight="bold">{{ systemStore.t('stagesView.synopsisLabel') }}</BaseText>
+                <BaseText size="sm">{{ selectedWorld.dossier }}</BaseText>
+                <BaseText size="sm" color="secondary">{{ selectedWorld.objective }}</BaseText>
+              </div>
+
+              <div class="panel-grid">
+                <div class="panel-metric">
+                  <span>Type</span>
+                  <strong>{{ selectedWorld.locationType }}</strong>
+                </div>
+                <div class="panel-metric">
+                  <span>Orbital band</span>
+                  <strong>{{ selectedWorld.orbitalBand }}</strong>
+                </div>
+                <div class="panel-metric">
+                  <span>Orbital angle</span>
+                  <strong>{{ selectedWorld.orbitalAngle }}°</strong>
+                </div>
+                <div class="panel-metric">
+                  <span>Cluster</span>
+                  <strong>{{ selectedWorldStage?.title || systemStore.t('profile.noContext') }}</strong>
+                </div>
               </div>
 
               <div class="panel-block">
@@ -295,12 +427,35 @@
                 </div>
               </div>
 
-              <div class="panel-block">
-                <BaseText size="sm" weight="bold">{{ systemStore.t('stagesView.relatedMissions') }}</BaseText>
+              <div class="panel-block" v-if="selectedWorldPeers.length">
+                <BaseText size="sm" weight="bold">{{ systemStore.t('stagesView.relatedWorlds') }}</BaseText>
                 <div class="panel-list">
-                  <article v-for="mission in selectedWorldMissions.slice(0, 8)" :key="mission.id" class="mission-item">
-                    <strong>{{ mission.title }}</strong>
-                    <small>{{ mission.desc }}</small>
+                  <button
+                    v-for="world in selectedWorldPeers"
+                    :key="world.id"
+                    class="list-item"
+                    @click="selectWorld(world.id, { force: true })"
+                  >
+                    <span>{{ world.name }}</span>
+                    <small>{{ world.locationLabel }}</small>
+                  </button>
+                </div>
+              </div>
+
+              <div class="panel-block">
+                <BaseText size="sm" weight="bold">{{ systemStore.t('stagesView.operationFeed') }}</BaseText>
+                <div class="panel-list">
+                  <article v-for="section in selectedWorldOperationGroups" :key="section.id" class="mission-section">
+                    <div class="mission-section-head">
+                      <strong>{{ section.name }}</strong>
+                      <small>{{ section.missions.length }} {{ systemStore.t('stagesView.missionsLabel') }}</small>
+                    </div>
+                    <div class="mission-section-list">
+                      <article v-for="mission in section.missions" :key="mission.id" class="mission-item">
+                        <strong>{{ mission.title }}</strong>
+                        <small>{{ mission.desc }}</small>
+                      </article>
+                    </div>
                   </article>
                 </div>
               </div>
@@ -310,6 +465,12 @@
               </BaseButton>
             </div>
           </template>
+
+          <template v-else>
+            <div class="panel-empty">
+              <BaseText size="sm" color="secondary">{{ systemStore.t('stagesView.panelHint') }}</BaseText>
+            </div>
+          </template>
         </div>
       </aside>
     </div>
@@ -317,7 +478,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -335,23 +496,38 @@ const VIEWBOX_WIDTH = 1600
 const VIEWBOX_HEIGHT = 900
 const VIEWBOX_CENTER = { x: VIEWBOX_WIDTH / 2, y: VIEWBOX_HEIGHT / 2 }
 const VIEWBOX_ASPECT = VIEWBOX_WIDTH / VIEWBOX_HEIGHT
-const MIN_ZOOM = 55
-const MAX_ZOOM = 420
-const CLUSTER_TO_WORLD_ZOOM = 130
+const DEFAULT_ZOOM = 14
+const MIN_ZOOM = 8
+const MAX_ZOOM = 1500
+const CLUSTER_TO_WORLD_ZOOM = 145
+const MOBILE_BREAKPOINT = 980
+const CAMERA_EASE = 0.2
 
 const mapViewportRef = ref(null)
-const mapZoom = ref(60)
+const mapZoom = ref(DEFAULT_ZOOM)
+const targetZoom = ref(DEFAULT_ZOOM)
 const cameraX = ref(VIEWBOX_CENTER.x)
 const cameraY = ref(VIEWBOX_CENTER.y)
+const targetCameraX = ref(VIEWBOX_CENTER.x)
+const targetCameraY = ref(VIEWBOX_CENTER.y)
 const isDragging = ref(false)
+const isMobileView = ref(false)
+const explorerOpen = ref(false)
+const hoveredWorldId = ref(null)
+const hoveredStageId = ref(null)
 const selectedEntity = ref(null)
 const isPanelOpen = ref(false)
 const suppressClickUntil = ref(0)
+let cameraFrame = null
+let resizeHandler = null
 
 const solarCenter = { x: VIEWBOX_CENTER.x, y: VIEWBOX_CENTER.y }
-const asteroidBeltRadius = 290
+const asteroidBeltRadius = 670
 const mapScale = computed(() => mapZoom.value / 100)
-
+const inverseSceneScale = computed(() => 1 / mapScale.value)
+const motionEnabled = computed(() => true)
+const mobileOverlayVisible = computed(() => isMobileView.value && (explorerOpen.value || isPanelOpen.value))
+const mapPreserveAspectRatio = computed(() => (isMobileView.value ? 'xMidYMid slice' : 'xMidYMid meet'))
 const sceneTransform = computed(() => {
   const scale = mapScale.value
   const translateX = VIEWBOX_CENTER.x - cameraX.value * scale
@@ -359,10 +535,15 @@ const sceneTransform = computed(() => {
   return `translate(${translateX} ${translateY}) scale(${scale})`
 })
 
-const interactionHint = computed(() => `Drag to move • Scroll to zoom • Double click to focus • ${Math.round(mapZoom.value)}%`)
+const zoomLabel = computed(() => `${Math.round(mapZoom.value)}%`)
+const interactionHint = computed(() =>
+  isMobileView.value
+    ? `Drag to move • Use +/- to zoom • ${zoomLabel.value}`
+    : `Drag to move • Scroll to zoom • Double click to focus • ${zoomLabel.value}`
+)
 const showStageClusters = computed(() => mapZoom.value < CLUSTER_TO_WORLD_ZOOM)
 const showWorldMarkers = computed(() => mapZoom.value >= CLUSTER_TO_WORLD_ZOOM)
-const showWorldLabels = computed(() => mapZoom.value >= 185)
+const showWorldLabels = computed(() => mapZoom.value >= 220)
 
 const dragState = {
   active: false,
@@ -427,14 +608,14 @@ const jupiterBands = [
 ]
 
 const planetLayout = [
-  { id: 'mercury', label: 'MERCURY', orbitRadius: 82, angle: 228, displayRadius: 8, fill: 'url(#planet-mercury)' },
-  { id: 'venus', label: 'VENUS', orbitRadius: 120, angle: 132, displayRadius: 12, fill: 'url(#planet-venus)' },
-  { id: 'earth', label: 'EARTH', orbitRadius: 165, angle: 305, displayRadius: 13, fill: 'url(#planet-earth)' },
-  { id: 'mars', label: 'MARS', orbitRadius: 222, angle: 116, displayRadius: 10, fill: 'url(#planet-mars)' },
-  { id: 'jupiter', label: 'JUPITER', orbitRadius: 310, angle: 338, displayRadius: 29, fill: 'url(#planet-jupiter)' },
-  { id: 'saturn', label: 'SATURN', orbitRadius: 402, angle: 24, displayRadius: 25, fill: 'url(#planet-saturn)' },
-  { id: 'uranus', label: 'URANUS', orbitRadius: 492, angle: 228, displayRadius: 18, fill: 'url(#planet-uranus)' },
-  { id: 'neptune', label: 'NEPTUNE', orbitRadius: 570, angle: 264, displayRadius: 18, fill: 'url(#planet-neptune)' },
+  { id: 'mercury', label: 'MERCURY', orbitRadius: 170, angle: 228, displayRadius: 7, fill: 'url(#planet-mercury)' },
+  { id: 'venus', label: 'VENUS', orbitRadius: 262, angle: 132, displayRadius: 12, fill: 'url(#planet-venus)' },
+  { id: 'earth', label: 'EARTH', orbitRadius: 372, angle: 305, displayRadius: 13, fill: 'url(#planet-earth)' },
+  { id: 'mars', label: 'MARS', orbitRadius: 520, angle: 116, displayRadius: 9, fill: 'url(#planet-mars)' },
+  { id: 'jupiter', label: 'JUPITER', orbitRadius: 860, angle: 338, displayRadius: 36, fill: 'url(#planet-jupiter)' },
+  { id: 'saturn', label: 'SATURN', orbitRadius: 1220, angle: 24, displayRadius: 31, fill: 'url(#planet-saturn)' },
+  { id: 'uranus', label: 'URANUS', orbitRadius: 1650, angle: 228, displayRadius: 20, fill: 'url(#planet-uranus)' },
+  { id: 'neptune', label: 'NEPTUNE', orbitRadius: 2050, angle: 264, displayRadius: 20, fill: 'url(#planet-neptune)' },
 ]
 
 const solarBodies = computed(() => {
@@ -444,35 +625,32 @@ const solarBodies = computed(() => {
       label: 'SUN',
       x: solarCenter.x,
       y: solarCenter.y,
-      displayRadius: 40,
+      displayRadius: 64,
       fill: 'url(#planet-sun)',
-      labelOffset: 72,
     },
   ]
 
   planetLayout.forEach((planet) => {
     const point = pointOnCircle(solarCenter.x, solarCenter.y, planet.orbitRadius, planet.angle)
 
-    bodies.push({
-      ...planet,
-      x: point.x,
-      y: point.y,
-      labelOffset: planet.displayRadius + 28,
+      bodies.push({
+        ...planet,
+        x: point.x,
+        y: point.y,
+      })
     })
-  })
 
   const earth = bodies.find((body) => body.id === 'earth')
   if (earth) {
-    const moonPoint = pointOnCircle(earth.x, earth.y, 24, 216)
+    const moonPoint = pointOnCircle(earth.x, earth.y, 40, 216)
 
     bodies.push({
       id: 'moon',
       label: 'MOON',
       x: moonPoint.x,
       y: moonPoint.y,
-      displayRadius: 7,
+      displayRadius: 8,
       fill: 'url(#planet-moon)',
-      labelOffset: 22,
     })
   }
 
@@ -518,7 +696,7 @@ const worldMapNodes = computed(() => {
     const index = Math.max(siblings.indexOf(world.id), 0)
     const angle = world.orbitalAngle ?? (index * (360 / Math.max(siblings.length, 1)))
     const nodePosition = getWorldNodePosition(world, body, anchorType, angle)
-    const label = getWorldLabelAnchor(nodePosition.x, nodePosition.y)
+    const label = getWorldLabelAnchor(nodePosition.x, nodePosition.y, body.x, body.y)
 
     return {
       ...world,
@@ -527,8 +705,8 @@ const worldMapNodes = computed(() => {
       x: nodePosition.x,
       y: nodePosition.y,
       nodeRadius: 10,
-      labelX: label.x,
-      labelY: label.y,
+      labelSideX: label.sideX,
+      labelSideY: label.sideY,
       labelAnchor: label.anchor,
     }
   })
@@ -563,7 +741,7 @@ const worldOrbitTracks = computed(() => {
       id: 'earth-moon-orbit',
       cx: earth.x,
       cy: earth.y,
-      r: 24,
+      r: 40,
     })
   }
 
@@ -580,10 +758,15 @@ const stageClusters = computed(() => {
       ? nodes.reduce((sum, world) => sum + world.y, 0) / nodes.length
       : solarCenter.y
 
+    const radius = nodes.length
+      ? Math.max(...nodes.map((world) => Math.hypot(world.x - x, world.y - y))) + 170
+      : 240
+
     return {
       ...chapter,
       x,
       y,
+      radius,
     }
   })
 })
@@ -597,6 +780,7 @@ const selectedWorld = computed(() => {
   if (!selectedEntity.value || selectedEntity.value.type !== 'world') return null
   return store.worlds.find((world) => world.id === selectedEntity.value.id) || null
 })
+const selectedWorldBodyId = computed(() => (selectedWorld.value ? resolveBodyId(selectedWorld.value) : null))
 
 const selectedWorldStage = computed(() => {
   if (!selectedWorld.value) return null
@@ -632,6 +816,20 @@ const selectedWorldMissions = computed(() => {
   return store.missions.filter((mission) => sectionIds.has(mission.sectionId))
 })
 
+const selectedWorldOperationGroups = computed(() => {
+  return selectedWorldSections.value.map((section) => ({
+    ...section,
+    missions: store.missions.filter((mission) => mission.sectionId === section.id),
+  }))
+})
+
+const selectedWorldPeers = computed(() => {
+  if (!selectedWorld.value) return []
+  return store.worlds.filter(
+    (world) => world.chapterId === selectedWorld.value.chapterId && world.id !== selectedWorld.value.id
+  )
+})
+
 function pointOnCircle(cx, cy, radius, angle) {
   const radians = angle * (Math.PI / 180)
   return {
@@ -658,8 +856,8 @@ function resolveAnchorType(world, bodyId) {
 }
 
 function getWorldOrbitRadius(world, body, anchorType) {
-  if (anchorType === 'satellite') return body.displayRadius + 18 + ((world.orbitalBand || 1) * 2)
-  return body.displayRadius + 28 + ((world.orbitalBand || 1) * 2.4)
+  if (anchorType === 'satellite') return body.displayRadius + 24 + ((world.orbitalBand || 1) * 2.8)
+  return body.displayRadius + 36 + ((world.orbitalBand || 1) * 3.4)
 }
 
 function getWorldNodePosition(world, body, anchorType, angle) {
@@ -670,13 +868,13 @@ function getWorldNodePosition(world, body, anchorType, angle) {
   return pointOnCircle(body.x, body.y, getWorldOrbitRadius(world, body, anchorType), angle)
 }
 
-function getWorldLabelAnchor(x, y) {
-  const isRight = x >= solarCenter.x
-  const isBottom = y >= solarCenter.y
+function getWorldLabelAnchor(x, y, referenceX = solarCenter.x, referenceY = solarCenter.y) {
+  const isRight = x >= referenceX
+  const isBottom = y >= referenceY
 
   return {
-    x: isRight ? 18 : -18,
-    y: isBottom ? 8 : -10,
+    sideX: isRight ? 1 : -1,
+    sideY: isBottom ? 1 : -1,
     anchor: isRight ? 'start' : 'end',
   }
 }
@@ -694,8 +892,171 @@ function buildMapTag(name) {
   return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase()
 }
 
+function truncateLabel(label, maxLength = 16) {
+  if (!label) return ''
+  if (label.length <= maxLength) return label
+  return `${label.slice(0, maxLength - 1)}…`
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
+}
+
+function syncCameraTargets() {
+  targetZoom.value = mapZoom.value
+  targetCameraX.value = cameraX.value
+  targetCameraY.value = cameraY.value
+}
+
+function stopCameraAnimation() {
+  if (cameraFrame) {
+    cancelAnimationFrame(cameraFrame)
+    cameraFrame = null
+  }
+}
+
+function tickCameraAnimation() {
+  const zoomDelta = targetZoom.value - mapZoom.value
+  const xDelta = targetCameraX.value - cameraX.value
+  const yDelta = targetCameraY.value - cameraY.value
+  const epsilon = 0.02
+
+  if (Math.abs(zoomDelta) < epsilon && Math.abs(xDelta) < epsilon && Math.abs(yDelta) < epsilon) {
+    mapZoom.value = targetZoom.value
+    cameraX.value = targetCameraX.value
+    cameraY.value = targetCameraY.value
+    cameraFrame = null
+    return
+  }
+
+  const ease = motionEnabled.value ? CAMERA_EASE : 1
+  mapZoom.value += zoomDelta * ease
+  cameraX.value += xDelta * ease
+  cameraY.value += yDelta * ease
+
+  cameraFrame = requestAnimationFrame(tickCameraAnimation)
+}
+
+function animateCameraToTargets() {
+  if (!motionEnabled.value) {
+    mapZoom.value = targetZoom.value
+    cameraX.value = targetCameraX.value
+    cameraY.value = targetCameraY.value
+    stopCameraAnimation()
+    return
+  }
+
+  if (!cameraFrame) {
+    cameraFrame = requestAnimationFrame(tickCameraAnimation)
+  }
+}
+
+function applyCameraImmediately(nextX, nextY, nextZoom = mapZoom.value) {
+  mapZoom.value = nextZoom
+  cameraX.value = nextX
+  cameraY.value = nextY
+  syncCameraTargets()
+}
+
+function scenePx(value) {
+  return value * inverseSceneScale.value
+}
+
+function pxStyle(sizePx) {
+  return { fontSize: `${scenePx(sizePx)}px` }
+}
+
+function getBodyLabelOffset(body) {
+  return body.displayRadius + scenePx(16)
+}
+
+function getBodyLabelStyle(body) {
+  return pxStyle(body.id === 'sun' ? 10 : 9)
+}
+
+function isBodyLabelVisible(body) {
+  if (mapZoom.value < 90) return body.id !== 'moon'
+  if (!selectedWorldBodyId.value) return false
+  if (body.id === selectedWorldBodyId.value) return true
+  return selectedWorldBodyId.value === 'moon' && body.id === 'earth'
+}
+
+function getStageClusterScale(stageId) {
+  if (selectedStage.value?.id === stageId) return 1.22
+  if (hoveredStageId.value === stageId) return 1.35
+  return 1
+}
+
+function getStageClusterRingRadius(stageId) {
+  return scenePx(13 * getStageClusterScale(stageId))
+}
+
+function getStageClusterHitRadius(stageId) {
+  return scenePx(20 * getStageClusterScale(stageId))
+}
+
+function getStageClusterCoreRadius(stageId) {
+  return scenePx(8 * getStageClusterScale(stageId))
+}
+
+function getStageClusterIndexY(stageId) {
+  return scenePx(-1 * getStageClusterScale(stageId))
+}
+
+function getStageClusterCountY(stageId) {
+  return scenePx(6 * getStageClusterScale(stageId))
+}
+
+function getStageClusterIndexStyle(stageId) {
+  return pxStyle(8 * getStageClusterScale(stageId))
+}
+
+function getStageClusterCountStyle(stageId) {
+  return pxStyle(6 * getStageClusterScale(stageId))
+}
+
+function getWorldNodeScale(worldId) {
+  if (selectedWorld.value?.id === worldId) return 1.2
+  if (hoveredWorldId.value === worldId) return 1.35
+  return 1
+}
+
+function getWorldNodeCoreRadius(world) {
+  return scenePx(Math.max(5.5, world.nodeRadius - 3.5) * getWorldNodeScale(world.id))
+}
+
+function getWorldNodeRingRadius(world) {
+  return scenePx((world.nodeRadius + 1.5) * getWorldNodeScale(world.id))
+}
+
+function getWorldNodeHitRadius(world) {
+  return Math.max(getWorldNodeRingRadius(world) + scenePx(8), scenePx(18))
+}
+
+function getWorldNodeTextSize(worldId) {
+  return 6 * getWorldNodeScale(worldId)
+}
+
+function getWorldLabelSize(worldId) {
+  return 8 * getWorldNodeScale(worldId)
+}
+
+function getWorldLabelX(world) {
+  return world.labelSideX * scenePx(14)
+}
+
+function getWorldLabelY(world) {
+  return world.labelSideY > 0 ? scenePx(8) : scenePx(-8)
+}
+
+function isWorldLabelVisible(world) {
+  if (hoveredWorldId.value === world.id) return true
+  if (selectedWorld.value) return selectedWorld.value.id === world.id
+  if (!showWorldLabels.value || mapZoom.value < 260) return false
+  if (selectedStage.value && selectedStage.value.id !== world.chapterId) return false
+
+  const distance = Math.hypot(world.x - cameraX.value, world.y - cameraY.value)
+  return distance <= (130 / mapScale.value)
 }
 
 function clientToViewBox(clientX, clientY) {
@@ -724,46 +1085,75 @@ function clientToViewBox(clientX, clientY) {
   }
 }
 
-function viewToWorld(viewPoint, scale = mapScale.value) {
+function viewToWorld(
+  viewPoint,
+  scale = targetZoom.value / 100,
+  centerX = targetCameraX.value,
+  centerY = targetCameraY.value
+) {
   return {
-    x: cameraX.value + (viewPoint.x - VIEWBOX_CENTER.x) / scale,
-    y: cameraY.value + (viewPoint.y - VIEWBOX_CENTER.y) / scale,
+    x: centerX + (viewPoint.x - VIEWBOX_CENTER.x) / scale,
+    y: centerY + (viewPoint.y - VIEWBOX_CENTER.y) / scale,
   }
 }
 
-function focusCamera(targetX, targetY, targetZoom = mapZoom.value) {
-  mapZoom.value = clamp(targetZoom, MIN_ZOOM, MAX_ZOOM)
-  cameraX.value = targetX
-  cameraY.value = targetY
+function focusCamera(nextX, nextY, nextZoom = targetZoom.value, immediate = false) {
+  targetZoom.value = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
+  targetCameraX.value = nextX
+  targetCameraY.value = nextY
+
+  if (immediate) {
+    applyCameraImmediately(targetCameraX.value, targetCameraY.value, targetZoom.value)
+    return
+  }
+
+  animateCameraToTargets()
 }
 
 function resetCamera() {
   selectedEntity.value = null
   isPanelOpen.value = false
-  focusCamera(solarCenter.x, solarCenter.y, 60)
+  focusCamera(solarCenter.x, solarCenter.y, DEFAULT_ZOOM)
+}
+
+function stepZoom(direction) {
+  const factor = direction > 0 ? 1.22 : 0.82
+  targetZoom.value = clamp(targetZoom.value * factor, MIN_ZOOM, MAX_ZOOM)
+  animateCameraToTargets()
+}
+
+function toggleExplorer() {
+  explorerOpen.value = !explorerOpen.value
 }
 
 function onWheel(event) {
   const viewPoint = clientToViewBox(event.clientX, event.clientY)
   const pointerWorld = viewToWorld(viewPoint)
   const zoomFactor = event.deltaY < 0 ? 1.16 : 0.84
-  const nextZoom = clamp(mapZoom.value * zoomFactor, MIN_ZOOM, MAX_ZOOM)
+  const nextZoom = clamp(targetZoom.value * zoomFactor, MIN_ZOOM, MAX_ZOOM)
   const nextScale = nextZoom / 100
 
-  mapZoom.value = nextZoom
-  cameraX.value = pointerWorld.x - (viewPoint.x - VIEWBOX_CENTER.x) / nextScale
-  cameraY.value = pointerWorld.y - (viewPoint.y - VIEWBOX_CENTER.y) / nextScale
+  targetZoom.value = nextZoom
+  targetCameraX.value = pointerWorld.x - (viewPoint.x - VIEWBOX_CENTER.x) / nextScale
+  targetCameraY.value = pointerWorld.y - (viewPoint.y - VIEWBOX_CENTER.y) / nextScale
+  animateCameraToTargets()
 }
 
 function onDoubleClick(event) {
   const viewPoint = clientToViewBox(event.clientX, event.clientY)
   const worldPoint = viewToWorld(viewPoint)
-  focusCamera(worldPoint.x, worldPoint.y, Math.min(MAX_ZOOM, mapZoom.value + 54))
+  focusCamera(worldPoint.x, worldPoint.y, Math.min(MAX_ZOOM, targetZoom.value + 80))
+}
+
+function isInteractiveTarget(target) {
+  return target instanceof Element && Boolean(target.closest('button, .world-node, .stage-cluster, .explorer-rail'))
 }
 
 function onPointerDown(event) {
   if (event.button !== undefined && event.button !== 0) return
+  if (isInteractiveTarget(event.target)) return
 
+  stopCameraAnimation()
   const point = clientToViewBox(event.clientX, event.clientY)
   dragState.active = true
   dragState.pointerId = event.pointerId
@@ -787,8 +1177,9 @@ function onPointerMove(event) {
     isDragging.value = true
   }
 
-  cameraX.value = dragState.startCameraX - (deltaX / mapScale.value)
-  cameraY.value = dragState.startCameraY - (deltaY / mapScale.value)
+  const nextCameraX = dragState.startCameraX - (deltaX / mapScale.value)
+  const nextCameraY = dragState.startCameraY - (deltaY / mapScale.value)
+  applyCameraImmediately(nextCameraX, nextCameraY, mapZoom.value)
 }
 
 function onPointerUp(event) {
@@ -804,21 +1195,24 @@ function onPointerUp(event) {
   dragState.pointerId = null
   dragState.moved = false
   isDragging.value = false
+  syncCameraTargets()
 }
 
-function selectStage(stageId) {
-  if (Date.now() < suppressClickUntil.value) return
+function selectStage(stageId, options = {}) {
+  if (!options.force && Date.now() < suppressClickUntil.value) return
 
   const stage = stageClusters.value.find((cluster) => cluster.id === stageId)
   if (!stage) return
 
   selectedEntity.value = { type: 'stage', id: stageId }
   isPanelOpen.value = true
-  focusCamera(stage.x, stage.y, 185)
+  if (isMobileView.value) explorerOpen.value = false
+  const targetZoom = clamp(82000 / Math.max(stage.radius, 180), 155, 340)
+  focusCamera(stage.x, stage.y, targetZoom)
 }
 
-function selectWorld(worldId) {
-  if (Date.now() < suppressClickUntil.value) return
+function selectWorld(worldId, options = {}) {
+  if (!options.force && Date.now() < suppressClickUntil.value) return
 
   const worldNode = worldMapNodes.value.find((world) => world.id === worldId)
   if (!worldNode) return
@@ -826,11 +1220,18 @@ function selectWorld(worldId) {
   activateWorld(worldId)
   selectedEntity.value = { type: 'world', id: worldId }
   isPanelOpen.value = true
-  const focusZoom = worldNode.anchorType === 'surface' ? 320 : 280
-  focusCamera(worldNode.x, worldNode.y, Math.max(mapZoom.value, focusZoom))
+  if (isMobileView.value) explorerOpen.value = false
+  const focusBody = bodyById.value[worldNode.bodyId] || worldNode
+  const focusZoom = worldNode.anchorType === 'surface' ? 920 : 720
+  focusCamera(focusBody.x, focusBody.y, Math.max(mapZoom.value, focusZoom))
 }
 
 function closePanel() {
+  isPanelOpen.value = false
+}
+
+function closeMobilePanels() {
+  explorerOpen.value = false
   isPanelOpen.value = false
 }
 
@@ -848,21 +1249,164 @@ function openWorldMissions(worldId) {
   activateWorld(worldId)
   router.push('/missions')
 }
+
+onMounted(() => {
+  resizeHandler = () => {
+    isMobileView.value = window.innerWidth <= MOBILE_BREAKPOINT
+    if (!isMobileView.value) return
+    explorerOpen.value = false
+  }
+
+  resizeHandler()
+  window.addEventListener('resize', resizeHandler)
+})
+
+onBeforeUnmount(() => {
+  stopCameraAnimation()
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+    resizeHandler = null
+  }
+})
 </script>
 
 <style scoped>
 .stages-page {
   height: 100%;
   overflow: hidden;
-  background: #050811;
+  background: var(--bg-main);
 }
 
 .map-layout {
   height: 100%;
-  display: flex;
-  gap: 10px;
   padding: 10px;
   box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.explorer-panel {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  bottom: 10px;
+  width: min(340px, calc(100vw - 44px));
+  max-width: calc(100vw - 44px);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(calc(-100% - 18px));
+  pointer-events: none;
+  z-index: 35;
+  transition:
+    opacity 140ms ease,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.explorer-panel.is-open {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.explorer-inner {
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.explorer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  flex: 0 0 auto;
+}
+
+.explorer-scroll {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.overview-card,
+.explorer-card,
+.explorer-world-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-main) 94%, var(--accent-color) 6%);
+}
+
+.overview-card,
+.explorer-card-button,
+.explorer-world-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.explorer-card {
+  overflow: hidden;
+}
+
+.explorer-card-button,
+.explorer-world-card {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.explorer-card-top,
+.explorer-world-head,
+.toolbar-actions,
+.mission-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.explorer-world-list,
+.mission-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.explorer-world-card small,
+.explorer-world-card span {
+  color: var(--text-secondary);
+}
+
+.card-badge,
+.world-tag {
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  font-size: 0.66rem;
+  color: var(--text-secondary);
 }
 
 .map-pane {
@@ -876,37 +1420,37 @@ function openWorldMissions(worldId) {
 
 .map-toolbar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 6px 12px;
   border: 1px solid var(--border-color);
-  border-radius: 14px;
-  background: rgba(7, 11, 18, 0.9);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, var(--bg-main) 12%);
 }
 
-.toolbar-copy,
-.toolbar-meta {
+.toolbar-copy {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+  min-width: 0;
 }
 
-.toolbar-meta {
-  align-items: flex-end;
-  text-align: right;
+.toolbar-subtitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .map-viewport {
   position: relative;
   flex: 1;
   min-height: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
   border-radius: 18px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 50%, rgba(90, 130, 255, 0.05), transparent 48%),
-    linear-gradient(180deg, rgba(9, 13, 22, 0.98), rgba(5, 8, 15, 1));
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-color) 12%, transparent), transparent 48%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-main) 92%, black 8%), var(--bg-main));
   cursor: grab;
   touch-action: none;
 }
@@ -921,8 +1465,49 @@ function openWorldMissions(worldId) {
   display: block;
 }
 
+.map-controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 6;
+}
+
+.map-control-button,
+.map-zoom-pill {
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-elevated) 94%, var(--bg-main) 6%);
+  color: var(--text-primary);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.map-control-button {
+  padding: 0 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.map-control-button--icon {
+  width: 34px;
+  padding: 0;
+  font-size: 1rem;
+}
+
+.map-zoom-pill {
+  display: grid;
+  place-items: center;
+  min-width: 62px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
 .space-backdrop {
-  fill: #050811;
+  fill: color-mix(in srgb, var(--bg-main) 94%, black 6%);
 }
 
 .star-dot {
@@ -937,7 +1522,7 @@ function openWorldMissions(worldId) {
 }
 
 .solar-orbit-track {
-  stroke: rgba(174, 193, 255, 0.22);
+  stroke: color-mix(in srgb, var(--text-secondary) 45%, transparent);
   stroke-width: 1.5;
   stroke-dasharray: 8 12;
 }
@@ -950,7 +1535,7 @@ function openWorldMissions(worldId) {
 }
 
 .world-orbit-track {
-  stroke: rgba(113, 214, 255, 0.24);
+  stroke: color-mix(in srgb, var(--accent-color) 44%, transparent);
   stroke-width: 1.35;
   stroke-dasharray: 5 9;
 }
@@ -985,7 +1570,7 @@ function openWorldMissions(worldId) {
 }
 
 .body-label {
-  fill: #eef5ff;
+  fill: var(--text-primary);
   font-size: 18px;
   letter-spacing: 0.18em;
   font-weight: 600;
@@ -998,27 +1583,39 @@ function openWorldMissions(worldId) {
 }
 
 .stage-cluster-ring {
-  fill: rgba(0, 0, 0, 0.16);
-  stroke: rgba(185, 198, 255, 0.52);
-  stroke-width: 1.5;
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-secondary) 44%, transparent);
+  stroke-width: 1.1;
+  transition: stroke 180ms ease;
+}
+
+.stage-cluster-hit,
+.world-node-hit {
+  fill: transparent;
+  stroke: transparent;
 }
 
 .stage-cluster-core {
-  fill: rgba(12, 18, 30, 0.94);
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 1;
+  fill: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
+  stroke: color-mix(in srgb, var(--text-primary) 35%, transparent);
+  stroke-width: 0.9;
+  transition:
+    fill 180ms ease,
+    stroke 180ms ease;
 }
 
 .stage-cluster-index {
-  fill: #f3f7ff;
-  font-size: 17px;
+  fill: var(--text-primary);
+  font-size: 8px;
   font-weight: 700;
+  transition: fill 180ms ease;
 }
 
 .stage-cluster-count {
-  fill: #9ca9c9;
-  font-size: 11px;
+  fill: var(--text-secondary);
+  font-size: 6px;
   letter-spacing: 0.12em;
+  transition: fill 180ms ease;
 }
 
 .stage-cluster.is-active .stage-cluster-ring,
@@ -1027,30 +1624,36 @@ function openWorldMissions(worldId) {
 }
 
 .world-node-ring {
-  fill: rgba(88, 140, 255, 0.08);
-  stroke: rgba(135, 229, 255, 0.38);
-  stroke-width: 1.2;
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent-color) 52%, transparent);
+  stroke-width: 1;
+  transition: stroke 160ms ease;
 }
 
 .world-node-core {
-  fill: rgba(8, 13, 24, 0.96);
-  stroke: rgba(255, 255, 255, 0.56);
-  stroke-width: 1.1;
+  fill: color-mix(in srgb, var(--bg-elevated) 90%, transparent);
+  stroke: color-mix(in srgb, var(--text-primary) 42%, transparent);
+  stroke-width: 0.9;
+  transition:
+    fill 160ms ease,
+    stroke 160ms ease;
 }
 
 .world-node-tag {
-  fill: #f3f7ff;
-  font-size: 9px;
+  fill: var(--text-primary);
+  font-size: 7px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   pointer-events: none;
+  transition: fill 160ms ease;
 }
 
 .world-node-label {
-  fill: rgba(236, 243, 255, 0.92);
-  font-size: 13px;
+  fill: var(--text-primary);
+  font-size: 9px;
   font-weight: 600;
   pointer-events: none;
+  transition: fill 160ms ease;
 }
 
 .world-node.is-active .world-node-ring,
@@ -1073,28 +1676,72 @@ function openWorldMissions(worldId) {
   bottom: 14px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(8, 11, 18, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  border: 1px solid var(--border-color);
   pointer-events: none;
 }
 
+.explorer-rail {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  color: var(--text-primary);
+  padding: 12px 8px;
+  cursor: pointer;
+}
+
+.mobile-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  border: 0;
+  background: rgba(0, 0, 0, 0.28);
+}
+
 .detail-panel {
-  width: 360px;
-  flex: 0 0 360px;
-  min-width: 0;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  bottom: 10px;
+  width: min(420px, calc(100vw - 44px));
+  max-width: calc(100vw - 44px);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(calc(100% + 18px));
+  pointer-events: none;
+  z-index: 34;
+  transition:
+    opacity 140ms ease,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.detail-panel.is-open {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .detail-panel-inner {
   height: 100%;
+  min-height: 0;
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  background: rgba(9, 13, 21, 0.94);
+  background: var(--bg-elevated);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px;
+  padding: 14px;
   box-sizing: border-box;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .panel-head {
@@ -1108,7 +1755,7 @@ function openWorldMissions(worldId) {
   height: 28px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--bg-elevated) 90%, transparent);
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -1132,7 +1779,7 @@ function openWorldMissions(worldId) {
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent-color) 2%);
 }
 
 .panel-metric {
@@ -1169,6 +1816,28 @@ function openWorldMissions(worldId) {
   gap: 3px;
 }
 
+.mission-section {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent-color) 2%);
+}
+
+.panel-empty {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+}
+
+.mission-section-head {
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.mission-section-head small {
+  color: var(--text-secondary);
+}
+
 .chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -1182,34 +1851,77 @@ function openWorldMissions(worldId) {
   font-size: 0.67rem;
 }
 
-@media (max-width: 1120px) {
-  .detail-panel {
-    width: 320px;
-    flex-basis: 320px;
-  }
-}
-
 @media (max-width: 980px) {
+  .map-pane {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .explorer-panel {
+    left: 8px;
+    top: 8px;
+    bottom: 8px;
+    width: min(340px, 88vw);
+    max-width: 88vw;
+  }
+
+  .explorer-panel:not(.is-open) {
+    transform: translateX(calc(-100% - 14px));
+  }
+
   .detail-panel {
-    position: absolute;
     right: 8px;
     top: 8px;
     bottom: 8px;
     width: min(340px, 88vw);
-    flex: none;
-    z-index: 30;
+  }
+
+  .detail-panel:not(.is-open) {
+    transform: translateX(calc(100% + 14px));
   }
 }
 
 @media (max-width: 720px) {
   .map-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+    padding: 6px 10px;
   }
 
-  .toolbar-meta {
-    align-items: flex-start;
-    text-align: left;
+  .toolbar-subtitle {
+    display: none;
+  }
+
+  .map-controls {
+    top: 10px;
+    right: 10px;
+    gap: 6px;
+  }
+
+  .map-control-button {
+    padding: 0 10px;
+  }
+
+  .map-control-button--icon {
+    width: 30px;
+    min-height: 30px;
+  }
+
+  .map-zoom-pill {
+    min-width: 52px;
+    min-height: 30px;
+    font-size: 0.72rem;
+  }
+
+  .map-hint {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    padding: 7px 9px;
+  }
+
+  .explorer-rail {
+    top: auto;
+    bottom: 14px;
+    transform: none;
   }
 }
 </style>

@@ -6,6 +6,7 @@ import TheoCoreView from '../views/TheoCoreView.vue' // TEO Core
 import AdvancementsView from '../views/AdvancementsView.vue'
 import StagesnWorldsView from '../views/Stages&WorldsView.vue'
 import UserProfileView from '../views/UserProfileView.vue'
+import IncubatorView from '../views/IncubatorView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -45,6 +46,12 @@ const router = createRouter({
       name: 'profile',
       component: UserProfileView,
       meta: { title: 'menu.profile' },
+    },
+    {
+      path: '/incubator',
+      name: 'incubator',
+      component: IncubatorView,
+      meta: { title: 'menu.incubator' },
     },
   ],
 })
