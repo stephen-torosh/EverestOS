@@ -182,7 +182,7 @@ const statCards = computed(() => [
 .evolution-page {
   height: 100%;
   overflow-y: auto;
-  background: var(--bg-main);
+  background: transparent;
 }
 
 .evolution-page.is-modal-open {

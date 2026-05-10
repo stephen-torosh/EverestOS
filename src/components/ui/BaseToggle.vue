@@ -23,37 +23,34 @@ defineEmits(['update:modelValue'])
 .toggle-wrapper {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: var(--glass-bg);
-  padding: 8px 16px;
+  gap: 10px;
+  background: color-mix(in srgb, var(--bg-elevated) 90%, var(--bg-main) 10%);
+  padding: 7px 12px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
   cursor: pointer;
-  transition: 0.3s;
 }
 .toggle-track {
   width: 36px;
   height: 20px;
-  background: #333;
+  background: color-mix(in srgb, var(--text-secondary) 32%, transparent);
   border-radius: 20px;
   position: relative;
-  transition: 0.3s;
 }
 .toggle-thumb {
   width: 14px;
   height: 14px;
-  background: #fff;
+  background: color-mix(in srgb, var(--text-primary) 85%, transparent);
   border-radius: 50%;
   position: absolute;
   top: 3px;
   left: 3px;
-  transition: 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 .active .toggle-track {
   background: var(--accent-color);
 }
 .active .toggle-thumb {
   left: 19px;
-  background: #000;
+  background: color-mix(in srgb, #000 86%, var(--accent-color) 14%);
 }
 </style>

@@ -19,11 +19,11 @@ defineProps({ active: Boolean, path: String })
 .dot {
   width: 6px;
   height: 6px;
-  background: #00ff88;
+  background: var(--accent-color);
   border-radius: 50%;
 }
 .pulse {
-  box-shadow: 0 0 8px #00ff88;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-color) 55%, transparent);
   animation: blink 2s infinite;
 }
 @keyframes blink {

@@ -362,7 +362,7 @@ function formatMissionContext(mission) {
 .profile-page {
   height: 100%;
   overflow-y: auto;
-  background: var(--bg-main);
+  background: transparent;
 }
 
 .page-inner {

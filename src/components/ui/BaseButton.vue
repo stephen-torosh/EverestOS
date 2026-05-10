@@ -18,44 +18,52 @@ defineProps({
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-radius: 12px;
-  border: 1px solid transparent;
+  min-height: 34px;
+  border-radius: 11px;
+  border: 1px solid var(--border-color);
   cursor: pointer;
-  transition: 0.2s;
   font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--text-primary);
-  box-shadow: 0 0 0 transparent;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, var(--bg-main) 8%);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
 }
 .primary {
-  background: var(--glass-bg);
-  border-color: var(--border-color);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, var(--bg-main) 12%);
 }
 .accent {
-  background: var(--accent-color);
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent-color) 26%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-color) 96%, white 4%),
+      color-mix(in srgb, var(--accent-color) 86%, black 14%)
+    );
+  border-color: color-mix(in srgb, var(--accent-color) 55%, black 45%);
+  color: #07110d;
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--accent-color) 30%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 .ghost {
-  background: none;
-  border: none;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 .outline {
-  background: none;
-  border-color: var(--accent-color);
-  color: var(--accent-color);
+  background: color-mix(in srgb, var(--bg-main) 94%, transparent);
+  border-color: color-mix(in srgb, var(--accent-color) 55%, var(--border-color));
+  color: color-mix(in srgb, var(--accent-color) 88%, var(--text-primary));
 }
 .sm {
   padding: 6px 12px;
-  font-size: 0.875rem;
+  font-size: 0.84rem;
 }
 .md {
-  padding: 10px 20px;
-  font-size: 1rem;
+  padding: 9px 16px;
+  font-size: 0.94rem;
 }
 .base-btn:hover {
-  opacity: 0.8;
-  transform: translateY(-1px);
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent-color) 18%, transparent);
+  filter: brightness(1.04);
 }
 </style>

@@ -169,8 +169,8 @@ const metricCards = computed(() => [
   height: 100%;
   overflow-y: auto;
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--accent-color) 12%, transparent), transparent 30%),
-    var(--bg-main);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent-color) 10%, transparent), transparent 30%),
+    transparent;
 }
 
 .page-inner {

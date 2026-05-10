@@ -65,222 +65,20 @@
       </aside>
 
       <section class="map-pane">
-        <header class="map-toolbar">
-          <div class="toolbar-copy">
-            <BaseText tag="h1" size="lg" weight="bold">{{ systemStore.t('stagesView.title') }}</BaseText>
-            <BaseText class="toolbar-subtitle" size="xs" color="secondary">{{ systemStore.t('stagesView.subtitle') }}</BaseText>
-          </div>
-        </header>
-
         <div
           ref="mapViewportRef"
           class="map-viewport"
-          :class="{ 'is-dragging': isDragging }"
+          :class="{ 'is-dragging': isDragging, 'is-low-detail': lowDetailMode, 'is-performance-cut': performanceCutMode }"
           @pointerdown="onPointerDown"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
           @pointercancel="onPointerUp"
+          @pointerleave="onPointerLeave"
           @wheel.prevent="onWheel"
           @dblclick="onDoubleClick"
         >
-          <svg class="solar-map" viewBox="0 0 1600 900" :preserveAspectRatio="mapPreserveAspectRatio" aria-label="Stages and Worlds">
-            <defs>
-              <radialGradient id="planet-sun" cx="35%" cy="35%">
-                <stop offset="0%" stop-color="#fff6bf" />
-                <stop offset="45%" stop-color="#ffcd57" />
-                <stop offset="100%" stop-color="#ef8618" />
-              </radialGradient>
-              <radialGradient id="planet-mercury" cx="35%" cy="30%">
-                <stop offset="0%" stop-color="#f3f5fb" />
-                <stop offset="100%" stop-color="#8d96a4" />
-              </radialGradient>
-              <radialGradient id="planet-venus" cx="35%" cy="30%">
-                <stop offset="0%" stop-color="#ffe2a1" />
-                <stop offset="100%" stop-color="#cb8e3e" />
-              </radialGradient>
-              <radialGradient id="planet-earth" cx="35%" cy="30%">
-                <stop offset="0%" stop-color="#99dbff" />
-                <stop offset="100%" stop-color="#3169ce" />
-              </radialGradient>
-              <radialGradient id="planet-moon" cx="35%" cy="35%">
-                <stop offset="0%" stop-color="#f0f3f9" />
-                <stop offset="100%" stop-color="#8f97a7" />
-              </radialGradient>
-              <radialGradient id="planet-mars" cx="35%" cy="35%">
-                <stop offset="0%" stop-color="#ffb190" />
-                <stop offset="100%" stop-color="#b84935" />
-              </radialGradient>
-              <linearGradient id="planet-jupiter" x1="0%" x2="0%" y1="0%" y2="100%">
-                <stop offset="0%" stop-color="#ead7bb" />
-                <stop offset="24%" stop-color="#cfad83" />
-                <stop offset="48%" stop-color="#f0dfc5" />
-                <stop offset="70%" stop-color="#bf976d" />
-                <stop offset="100%" stop-color="#e1c7ab" />
-              </linearGradient>
-              <linearGradient id="planet-saturn" x1="0%" x2="0%" y1="0%" y2="100%">
-                <stop offset="0%" stop-color="#f4e2b4" />
-                <stop offset="100%" stop-color="#bc9150" />
-              </linearGradient>
-              <radialGradient id="planet-uranus" cx="35%" cy="30%">
-                <stop offset="0%" stop-color="#d9fbff" />
-                <stop offset="100%" stop-color="#77b6ce" />
-              </radialGradient>
-              <radialGradient id="planet-neptune" cx="35%" cy="30%">
-                <stop offset="0%" stop-color="#b7c9ff" />
-                <stop offset="100%" stop-color="#5770c9" />
-              </radialGradient>
-            </defs>
-
-            <rect class="space-backdrop" x="0" y="0" width="1600" height="900" rx="24" />
-
-            <circle
-              v-for="star in starField"
-              :key="star.id"
-              class="star-dot"
-              :cx="star.x"
-              :cy="star.y"
-              :r="star.r"
-              :opacity="star.opacity"
-            />
-
-            <g :transform="sceneTransform">
-              <circle
-                v-for="track in solarOrbitTracks"
-                :key="track.id"
-                class="solar-orbit-track"
-                :cx="track.cx"
-                :cy="track.cy"
-                :r="track.r"
-              />
-
-              <circle class="asteroid-belt-track" :cx="solarCenter.x" :cy="solarCenter.y" :r="asteroidBeltRadius" />
-
-              <circle
-                v-for="track in worldOrbitTracks"
-                :key="track.id"
-                class="world-orbit-track"
-                :cx="track.cx"
-                :cy="track.cy"
-                :r="track.r"
-              />
-
-              <g
-                v-for="body in solarBodies"
-                :key="body.id"
-                class="body-group"
-                :transform="`translate(${body.x} ${body.y})`"
-              >
-                <circle v-if="body.id === 'sun'" class="sun-aura" :r="body.displayRadius * 1.8" />
-                <ellipse
-                  v-if="body.id === 'saturn'"
-                  class="saturn-ring"
-                  :rx="body.displayRadius * 1.95"
-                  :ry="body.displayRadius * 0.7"
-                />
-                <circle class="body-core" :r="body.displayRadius" :fill="body.fill" />
-
-                <template v-if="body.id === 'earth'">
-                  <path
-                    class="earth-land"
-                    d="M -4 -7 C 3 -10 8 -7 7 -1 C 5 4 -1 5 -4 1 C -8 0 -7 -4 -4 -7 Z"
-                  />
-                  <path
-                    class="earth-land"
-                    d="M -10 4 C -7 1 -3 2 -2 7 C -4 10 -8 11 -11 8 C -12 6 -12 5 -10 4 Z"
-                  />
-                </template>
-
-                <template v-if="body.id === 'jupiter'">
-                  <line
-                    v-for="band in jupiterBands"
-                    :key="band.id"
-                    class="jupiter-band"
-                    :x1="-body.displayRadius * 0.9"
-                    :x2="body.displayRadius * 0.9"
-                    :y1="band.y * body.displayRadius"
-                    :y2="band.y * body.displayRadius"
-                  />
-                </template>
-
-                <circle
-                  v-if="body.id === 'moon'"
-                  class="moon-crater"
-                  :cx="body.displayRadius * 0.18"
-                  :cy="-body.displayRadius * 0.18"
-                  :r="body.displayRadius * 0.22"
-                />
-
-                  <text
-                    v-if="isBodyLabelVisible(body)"
-                    class="body-label"
-                    text-anchor="middle"
-                    :x="0"
-                    :y="getBodyLabelOffset(body)"
-                    :style="getBodyLabelStyle(body)"
-                  >
-                    {{ truncateLabel(body.label, 12) }}
-                  </text>
-              </g>
-
-              <g v-if="showStageClusters" class="cluster-layer">
-                <g
-                  v-for="cluster in stageClusters"
-                  :key="cluster.id"
-                  class="stage-cluster"
-                  :class="{ 'is-active': selectedStage?.id === cluster.id }"
-                  :transform="`translate(${cluster.x} ${cluster.y})`"
-                  @mouseenter="hoveredStageId = cluster.id"
-                  @mouseleave="hoveredStageId = null"
-                  @pointerdown.stop
-                  @click.stop="selectStage(cluster.id)"
-                >
-                  <circle class="stage-cluster-hit" :r="getStageClusterHitRadius(cluster.id)" />
-                  <circle class="stage-cluster-ring" :r="getStageClusterRingRadius(cluster.id)" />
-                  <circle class="stage-cluster-core" :r="getStageClusterCoreRadius(cluster.id)" />
-                  <text class="stage-cluster-index" text-anchor="middle" :y="getStageClusterIndexY(cluster.id)" :style="getStageClusterIndexStyle(cluster.id)">
-                    {{ cluster.order }}
-                  </text>
-                  <text class="stage-cluster-count" text-anchor="middle" :y="getStageClusterCountY(cluster.id)" :style="getStageClusterCountStyle(cluster.id)">
-                    {{ cluster.worlds.length }}
-                  </text>
-                </g>
-              </g>
-
-              <g v-if="showWorldMarkers" class="world-layer">
-                <g
-                  v-for="world in worldMapNodes"
-                  :key="world.id"
-                  class="world-node"
-                  :class="{
-                    'is-active': selectedWorld?.id === world.id,
-                    'is-muted': selectedStage && selectedStage.id !== world.chapterId,
-                  }"
-                  :transform="`translate(${world.x} ${world.y})`"
-                  @mouseenter="hoveredWorldId = world.id"
-                  @mouseleave="hoveredWorldId = null"
-                  @pointerdown.stop
-                  @click.stop="selectWorld(world.id)"
-                >
-                  <circle class="world-node-hit" :r="getWorldNodeHitRadius(world)" />
-                  <circle class="world-node-ring" :r="getWorldNodeRingRadius(world)" />
-                  <circle class="world-node-core" :r="getWorldNodeCoreRadius(world)" />
-                  <text class="world-node-tag" text-anchor="middle" dominant-baseline="central" :style="pxStyle(getWorldNodeTextSize(world.id))">
-                    {{ world.mapTag || buildMapTag(world.name) }}
-                  </text>
-                  <text
-                    v-if="isWorldLabelVisible(world)"
-                    class="world-node-label"
-                    :x="getWorldLabelX(world)"
-                    :y="getWorldLabelY(world)"
-                    :text-anchor="world.labelAnchor"
-                    :style="pxStyle(getWorldLabelSize(world.id))"
-                  >
-                    {{ truncateLabel(world.name, 18) }}
-                  </text>
-                </g>
-              </g>
-            </g>
-          </svg>
+          <canvas ref="mapCanvasRef" class="solar-canvas" aria-label="Stages and Worlds"></canvas>
+          <div class="map-inline-title">Етапи та світи</div>
 
           <div class="map-controls">
             <button class="map-control-button" type="button" :aria-label="systemStore.t('stagesView.resetView')" @click="resetCamera">
@@ -319,7 +117,49 @@
             </button>
           </div>
 
-          <template v-if="selectedEntity?.type === 'stage' && selectedStage">
+          <template v-if="selectedEntity?.type === 'body' && selectedBody">
+            <div class="panel-stack">
+              <div class="panel-block">
+                <BaseText size="xs" weight="bold" color="secondary" class="caps">{{ systemStore.t('stagesView.dossierTitle') }}</BaseText>
+                <BaseText size="lg" weight="bold">{{ selectedBody.label }}</BaseText>
+                <BaseText size="sm" color="secondary">{{ systemStore.t('stagesView.activePlanet') }}</BaseText>
+              </div>
+
+              <div class="panel-grid">
+                <div class="panel-metric">
+                  <span>{{ systemStore.t('stagesView.relatedWorlds') }}</span>
+                  <strong>{{ selectedBodyWorldsCount }}</strong>
+                </div>
+                <div class="panel-metric">
+                  <span>{{ systemStore.t('stagesView.relatedStages') }}</span>
+                  <strong>{{ selectedBodyStages.length }}</strong>
+                </div>
+              </div>
+
+              <div class="panel-block" v-if="selectedBodyStages.length">
+                <BaseButton
+                  variant="accent"
+                  size="sm"
+                  @click="openStageWorlds(selectedBodyStages[0].id, { force: true })"
+                >
+                  {{ systemStore.t('stagesView.openBodyStages') }}
+                </BaseButton>
+                <div class="panel-list">
+                  <button
+                    v-for="stage in selectedBodyStages"
+                    :key="stage.id"
+                    class="list-item"
+                    @click="selectStage(stage.id, { force: true })"
+                  >
+                    <span>{{ stage.title }}</span>
+                    <small>{{ stage.worlds.length }} {{ systemStore.t('stagesView.worldsCount') }}</small>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="selectedEntity?.type === 'stage' && selectedStage">
             <div class="panel-stack">
               <div class="panel-block">
                 <BaseText size="xs" weight="bold" color="secondary" class="caps">{{ systemStore.t('stagesView.activeStage') }}</BaseText>
@@ -350,7 +190,14 @@
 
               <div class="panel-block">
                 <BaseText size="sm" weight="bold">{{ systemStore.t('stagesView.relatedWorlds') }}</BaseText>
-                <div class="panel-list">
+                <BaseButton
+                  variant="accent"
+                  size="sm"
+                  @click="openStageWorlds(selectedStage.id, { force: true })"
+                >
+                  {{ systemStore.t('stagesView.openStageWorlds') }}
+                </BaseButton>
+                <div v-if="isStageFocusMode && focusedStageId === selectedStage.id" class="panel-list">
                   <button
                     v-for="world in selectedStageWorlds"
                     :key="world.id"
@@ -478,7 +325,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -498,12 +345,23 @@ const VIEWBOX_CENTER = { x: VIEWBOX_WIDTH / 2, y: VIEWBOX_HEIGHT / 2 }
 const VIEWBOX_ASPECT = VIEWBOX_WIDTH / VIEWBOX_HEIGHT
 const DEFAULT_ZOOM = 14
 const MIN_ZOOM = 8
-const MAX_ZOOM = 1500
-const CLUSTER_TO_WORLD_ZOOM = 145
+const MAX_ZOOM_FULL = 1180
+const MAX_ZOOM_LOW_DETAIL = 420
 const MOBILE_BREAKPOINT = 980
-const CAMERA_EASE = 0.2
+const CAMERA_EASE = 0.24
+const WHEEL_ZOOM_SENSITIVITY = 0.0042
+const WHEEL_PAN_SENSITIVITY = 1
+const CANVAS_DPR_MAX = 1
+const SCENE_BOUND_MARGIN = 300
+const SCENE_BOUND_RADIUS = 2050 + SCENE_BOUND_MARGIN
+const SCENE_MIN_X = VIEWBOX_CENTER.x - SCENE_BOUND_RADIUS
+const SCENE_MAX_X = VIEWBOX_CENTER.x + SCENE_BOUND_RADIUS
+const SCENE_MIN_Y = VIEWBOX_CENTER.y - SCENE_BOUND_RADIUS
+const SCENE_MAX_Y = VIEWBOX_CENTER.y + SCENE_BOUND_RADIUS
+const STAGE_FOCUS_EXIT_ZOOM = 118
 
 const mapViewportRef = ref(null)
+const mapCanvasRef = ref(null)
 const mapZoom = ref(DEFAULT_ZOOM)
 const targetZoom = ref(DEFAULT_ZOOM)
 const cameraX = ref(VIEWBOX_CENTER.x)
@@ -516,34 +374,66 @@ const explorerOpen = ref(false)
 const hoveredWorldId = ref(null)
 const hoveredStageId = ref(null)
 const selectedEntity = ref(null)
+const focusedStageId = ref(null)
 const isPanelOpen = ref(false)
 const suppressClickUntil = ref(0)
+const prefersReducedMotion = ref(false)
+const lowPowerDevice = ref(false)
+const isWheelInteracting = ref(false)
 let cameraFrame = null
+let dragFrame = null
+let wheelFrame = null
 let resizeHandler = null
+let reducedMotionQuery = null
+let reducedMotionHandler = null
+let mapRenderFrame = null
+let wheelInteractionTimeout = null
+const wheelState = {
+  clientX: 0,
+  clientY: 0,
+  deltaX: 0,
+  deltaY: 0,
+  pinchLike: false,
+}
+
+const viewportMetrics = {
+  left: 0,
+  top: 0,
+  renderWidth: VIEWBOX_WIDTH,
+  renderHeight: VIEWBOX_HEIGHT,
+  offsetX: 0,
+  offsetY: 0,
+  ready: false,
+}
+const mapPalette = {
+  accent: '#00ffd9',
+  textPrimary: '#ffffff',
+  textSecondary: '#a7adb7',
+}
+const forcePerformanceMapMode = true
+const STAGE_PRIMARY_BODY_PRIORITY = ['earth', 'mars', 'jupiter', 'saturn', 'venus', 'mercury', 'uranus', 'neptune', 'moon']
 
 const solarCenter = { x: VIEWBOX_CENTER.x, y: VIEWBOX_CENTER.y }
 const asteroidBeltRadius = 670
 const mapScale = computed(() => mapZoom.value / 100)
 const inverseSceneScale = computed(() => 1 / mapScale.value)
-const motionEnabled = computed(() => true)
+const motionEnabled = computed(() => systemStore.animationsEnabled && !prefersReducedMotion.value)
+const lowDetailMode = computed(() => forcePerformanceMapMode || isMobileView.value || lowPowerDevice.value || !motionEnabled.value)
+const performanceCutMode = computed(() => isDragging.value || dragState.active || isWheelInteracting.value)
+const effectiveMaxZoom = computed(() => (lowDetailMode.value ? MAX_ZOOM_LOW_DETAIL : MAX_ZOOM_FULL))
+const hoverEffectsEnabled = computed(() => motionEnabled.value && !forcePerformanceMapMode && !performanceCutMode.value)
 const mobileOverlayVisible = computed(() => isMobileView.value && (explorerOpen.value || isPanelOpen.value))
-const mapPreserveAspectRatio = computed(() => (isMobileView.value ? 'xMidYMid slice' : 'xMidYMid meet'))
-const sceneTransform = computed(() => {
-  const scale = mapScale.value
-  const translateX = VIEWBOX_CENTER.x - cameraX.value * scale
-  const translateY = VIEWBOX_CENTER.y - cameraY.value * scale
-  return `translate(${translateX} ${translateY}) scale(${scale})`
-})
+const isStageFocusMode = computed(() => Boolean(focusedStageId.value))
 
 const zoomLabel = computed(() => `${Math.round(mapZoom.value)}%`)
 const interactionHint = computed(() =>
   isMobileView.value
     ? `Drag to move • Use +/- to zoom • ${zoomLabel.value}`
-    : `Drag to move • Scroll to zoom • Double click to focus • ${zoomLabel.value}`
+    : `Drag to move • Click planet to open stage • Pinch/ctrl+wheel to zoom • ${zoomLabel.value}`
 )
-const showStageClusters = computed(() => mapZoom.value < CLUSTER_TO_WORLD_ZOOM)
-const showWorldMarkers = computed(() => mapZoom.value >= CLUSTER_TO_WORLD_ZOOM)
-const showWorldLabels = computed(() => mapZoom.value >= 220)
+const showStageClusters = computed(() => !isStageFocusMode.value)
+const showWorldMarkers = computed(() => isStageFocusMode.value)
+const showWorldLabels = computed(() => !performanceCutMode.value && mapZoom.value >= (lowDetailMode.value ? 280 : 180))
 
 const dragState = {
   active: false,
@@ -553,6 +443,8 @@ const dragState = {
   startCameraX: 0,
   startCameraY: 0,
   moved: false,
+  lastClientX: 0,
+  lastClientY: 0,
 }
 
 const starField = [
@@ -600,12 +492,10 @@ const starField = [
   { id: 's42', x: 1440, y: 826, r: 1.4, opacity: 0.34 },
 ]
 
-const jupiterBands = [
-  { id: 'j1', y: -0.48 },
-  { id: 'j2', y: -0.2 },
-  { id: 'j3', y: 0.08 },
-  { id: 'j4', y: 0.34 },
-]
+const renderedStarField = computed(() => {
+  if (lowDetailMode.value) return starField.filter((_, index) => index % 5 === 0)
+  return starField.filter((_, index) => index % 3 === 0)
+})
 
 const planetLayout = [
   { id: 'mercury', label: 'MERCURY', orbitRadius: 170, angle: 228, displayRadius: 7, fill: 'url(#planet-mercury)' },
@@ -668,6 +558,17 @@ const solarOrbitTracks = computed(() => {
   }))
 })
 
+const renderedSolarOrbitTracks = computed(() => {
+  return solarOrbitTracks.value.filter(
+    (track) =>
+      track.id.endsWith('mercury')
+      || track.id.endsWith('venus')
+      || track.id.endsWith('earth')
+      || track.id.endsWith('mars')
+      || (!lowDetailMode.value && track.id.endsWith('jupiter'))
+  )
+})
+
 const chapterCards = computed(() => {
   return [...store.chapters]
     .sort((left, right) => left.order - right.order)
@@ -677,25 +578,98 @@ const chapterCards = computed(() => {
     }))
 })
 
-const worldMapNodes = computed(() => {
-  const groups = new Map()
+const stagePlanets = computed(() => {
+  return chapterCards.value.map((chapter) => {
+    const bodyCounts = new Map()
+    chapter.worlds.forEach((world) => {
+      const bodyId = resolveBodyId(world)
+      bodyCounts.set(bodyId, (bodyCounts.get(bodyId) || 0) + 1)
+    })
 
-  store.worlds.forEach((world) => {
+    const bodyId = [...bodyCounts.entries()]
+      .sort((left, right) => {
+        if (right[1] !== left[1]) return right[1] - left[1]
+        return STAGE_PRIMARY_BODY_PRIORITY.indexOf(left[0]) - STAGE_PRIMARY_BODY_PRIORITY.indexOf(right[0])
+      })[0]?.[0] || 'earth'
+
+    const body = bodyById.value[bodyId] || bodyById.value.earth
+    return {
+      ...chapter,
+      bodyId,
+      x: body.x,
+      y: body.y,
+      radius: Math.max(220, body.displayRadius * 22),
+    }
+  })
+})
+
+const stagePlanetById = computed(() =>
+  Object.fromEntries(stagePlanets.value.map((stage) => [stage.id, stage]))
+)
+
+const stageBodiesByChapterId = computed(() => {
+  const links = new Map()
+  chapterCards.value.forEach((chapter) => {
+    links.set(chapter.id, new Set(chapter.worlds.map((world) => resolveBodyId(world))))
+  })
+  return links
+})
+
+const stageIdsByBodyId = computed(() => {
+  const links = new Map()
+  stageBodiesByChapterId.value.forEach((bodyIds, stageId) => {
+    for (const bodyId of bodyIds) {
+      if (!links.has(bodyId)) links.set(bodyId, [])
+      links.get(bodyId).push(stageId)
+    }
+  })
+  return links
+})
+
+const selectedBody = computed(() => {
+  if (!selectedEntity.value || selectedEntity.value.type !== 'body') return null
+  return bodyById.value[selectedEntity.value.id] || null
+})
+
+const selectedBodyStages = computed(() => {
+  if (!selectedBody.value) return []
+  const stageIds = stageIdsByBodyId.value.get(selectedBody.value.id) || []
+  return stageIds
+    .map((stageId) => stagePlanetById.value[stageId])
+    .filter(Boolean)
+    .sort((left, right) => left.order - right.order)
+})
+
+const selectedBodyWorldsCount = computed(() => {
+  if (!selectedBody.value) return 0
+  return store.worlds.filter((world) => resolveBodyId(world) === selectedBody.value.id).length
+})
+
+const focusedWorldNodes = computed(() => {
+  if (!focusedStageId.value) return []
+  const stage = stagePlanetById.value[focusedStageId.value]
+  if (!stage) return []
+  const worlds = stage.worlds || []
+  if (!worlds.length) return []
+
+  const groups = new Map()
+  worlds.forEach((world) => {
     const bodyId = resolveBodyId(world)
-    const anchorType = resolveAnchorType(world, bodyId)
+    const anchorType = resolveAnchorType(world)
     const key = `${bodyId}:${anchorType}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(world.id)
   })
 
-  return store.worlds.map((world) => {
+  return worlds.map((world) => {
     const bodyId = resolveBodyId(world)
     const body = bodyById.value[bodyId] || bodyById.value.earth
-    const anchorType = resolveAnchorType(world, bodyId)
+    const anchorType = resolveAnchorType(world)
     const siblings = groups.get(`${bodyId}:${anchorType}`) || [world.id]
-    const index = Math.max(siblings.indexOf(world.id), 0)
-    const angle = world.orbitalAngle ?? (index * (360 / Math.max(siblings.length, 1)))
-    const nodePosition = getWorldNodePosition(world, body, anchorType, angle)
+    const index = Math.max(0, siblings.indexOf(world.id))
+    const angle = world.orbitalAngle ?? ((index * (360 / Math.max(siblings.length, 1))) + (world.orbitalBand || 0) * 11)
+    const orbitRadius = getWorldOrbitRadius(world, body, anchorType, index)
+    const nodePosition = getWorldNodePosition(body, anchorType, orbitRadius, angle)
     const label = getWorldLabelAnchor(nodePosition.x, nodePosition.y, body.x, body.y)
 
     return {
@@ -708,68 +682,50 @@ const worldMapNodes = computed(() => {
       labelSideX: label.sideX,
       labelSideY: label.sideY,
       labelAnchor: label.anchor,
+      orbitRadius,
     }
   })
 })
 
-const worldOrbitTracks = computed(() => {
-  const tracks = []
+const visibleWorldNodes = computed(() => (isStageFocusMode.value ? focusedWorldNodes.value : []))
+
+const focusedWorldOrbitTracks = computed(() => {
   const seen = new Set()
-
-  worldMapNodes.value
+  return focusedWorldNodes.value
     .filter((world) => world.anchorType === 'orbit' || world.anchorType === 'satellite')
-    .forEach((world) => {
-      const body = bodyById.value[world.bodyId]
-      if (!body) return
-
-      const radius = getWorldOrbitRadius(world, body, world.anchorType)
-      const key = `${world.bodyId}-${Math.round(radius)}`
-      if (seen.has(key)) return
+    .map((world) => ({ bodyId: world.bodyId, radius: Math.round(world.orbitRadius || 0) }))
+    .filter(({ bodyId, radius }) => {
+      if (!radius || !bodyId) return false
+      const key = `${bodyId}:${radius}`
+      if (seen.has(key)) return false
       seen.add(key)
-
-      tracks.push({
-        id: key,
-        cx: body.x,
-        cy: body.y,
-        r: radius,
-      })
+      return true
     })
-
-  const earth = bodyById.value.earth
-  if (earth) {
-    tracks.push({
-      id: 'earth-moon-orbit',
-      cx: earth.x,
-      cy: earth.y,
-      r: 40,
+    .map(({ bodyId, radius }) => {
+      const body = bodyById.value[bodyId]
+      if (!body) return null
+      return {
+      id: `${bodyId}-${radius}`,
+      cx: body.x,
+      cy: body.y,
+      r: radius,
+      }
     })
-  }
-
-  return tracks
+    .filter(Boolean)
 })
 
-const stageClusters = computed(() => {
-  return chapterCards.value.map((chapter) => {
-    const nodes = worldMapNodes.value.filter((world) => world.chapterId === chapter.id)
-    const x = nodes.length
-      ? nodes.reduce((sum, world) => sum + world.x, 0) / nodes.length
-      : solarCenter.x
-    const y = nodes.length
-      ? nodes.reduce((sum, world) => sum + world.y, 0) / nodes.length
-      : solarCenter.y
-
-    const radius = nodes.length
-      ? Math.max(...nodes.map((world) => Math.hypot(world.x - x, world.y - y))) + 170
-      : 240
-
-    return {
-      ...chapter,
-      x,
-      y,
-      radius,
-    }
-  })
+const renderedWorldOrbitTracks = computed(() => {
+  if (!isStageFocusMode.value || mapZoom.value < 110) return []
+  return focusedWorldOrbitTracks.value
 })
+
+const renderedSolarBodies = computed(() => {
+  if (!lowDetailMode.value && mapZoom.value >= 72) return solarBodies.value
+  const allowedIds = new Set(['sun', 'mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'])
+  return solarBodies.value.filter((body) => allowedIds.has(body.id))
+})
+
+const stageClusters = computed(() => stagePlanets.value)
 
 const selectedStage = computed(() => {
   if (!selectedEntity.value || selectedEntity.value.type !== 'stage') return null
@@ -850,22 +806,26 @@ function resolveBodyId(world) {
   return 'earth'
 }
 
-function resolveAnchorType(world, bodyId) {
-  if (bodyId === 'moon' && world.locationType === 'satellite') return 'surface'
-  return world.locationType || 'surface'
+function resolveAnchorType(world) {
+  const type = world.locationType || 'orbit'
+  if (type === 'surface') return 'surface'
+  if (type === 'satellite') return 'satellite'
+  return 'orbit'
 }
 
-function getWorldOrbitRadius(world, body, anchorType) {
-  if (anchorType === 'satellite') return body.displayRadius + 24 + ((world.orbitalBand || 1) * 2.8)
-  return body.displayRadius + 36 + ((world.orbitalBand || 1) * 3.4)
-}
-
-function getWorldNodePosition(world, body, anchorType, angle) {
-  if (anchorType === 'surface') {
-    return pointOnCircle(body.x, body.y, body.displayRadius - 1, angle)
+function getWorldOrbitRadius(world, body, anchorType, index = 0) {
+  if (anchorType === 'surface') return Math.max(body.displayRadius + 8 + (index % 2), body.displayRadius + 7)
+  if (anchorType === 'satellite') {
+    return body.displayRadius + 18 + ((world.orbitalBand || 1) * 4) + ((index % 5) * 4)
   }
+  return body.displayRadius + 28 + ((world.orbitalBand || 1) * 6) + ((index % 6) * 6)
+}
 
-  return pointOnCircle(body.x, body.y, getWorldOrbitRadius(world, body, anchorType), angle)
+function getWorldNodePosition(body, anchorType, orbitRadius, angle) {
+  if (anchorType === 'surface') {
+    return pointOnCircle(body.x, body.y, body.displayRadius + 5, angle)
+  }
+  return pointOnCircle(body.x, body.y, orbitRadius, angle)
 }
 
 function getWorldLabelAnchor(x, y, referenceX = solarCenter.x, referenceY = solarCenter.y) {
@@ -902,10 +862,35 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
 }
 
+function markInteraction() {
+  return
+}
+
 function syncCameraTargets() {
   targetZoom.value = mapZoom.value
   targetCameraX.value = cameraX.value
   targetCameraY.value = cameraY.value
+}
+
+function clampCameraPosition(nextX, nextY, zoomPercent = targetZoom.value) {
+  const safeZoom = clamp(zoomPercent, MIN_ZOOM, effectiveMaxZoom.value)
+  const scale = safeZoom / 100
+  const halfViewWidth = VIEWBOX_CENTER.x / scale
+  const halfViewHeight = VIEWBOX_CENTER.y / scale
+
+  const minCameraX = SCENE_MIN_X + halfViewWidth
+  const maxCameraX = SCENE_MAX_X - halfViewWidth
+  const minCameraY = SCENE_MIN_Y + halfViewHeight
+  const maxCameraY = SCENE_MAX_Y - halfViewHeight
+
+  const clampedX = minCameraX > maxCameraX
+    ? (SCENE_MIN_X + SCENE_MAX_X) / 2
+    : clamp(nextX, minCameraX, maxCameraX)
+  const clampedY = minCameraY > maxCameraY
+    ? (SCENE_MIN_Y + SCENE_MAX_Y) / 2
+    : clamp(nextY, minCameraY, maxCameraY)
+
+  return { x: clampedX, y: clampedY, zoom: safeZoom }
 }
 
 function stopCameraAnimation() {
@@ -915,10 +900,22 @@ function stopCameraAnimation() {
   }
 }
 
+function stopDragFrame() {
+  if (dragFrame) {
+    cancelAnimationFrame(dragFrame)
+    dragFrame = null
+  }
+}
+
 function tickCameraAnimation() {
-  const zoomDelta = targetZoom.value - mapZoom.value
-  const xDelta = targetCameraX.value - cameraX.value
-  const yDelta = targetCameraY.value - cameraY.value
+  const bounded = clampCameraPosition(targetCameraX.value, targetCameraY.value, targetZoom.value)
+  targetZoom.value = bounded.zoom
+  targetCameraX.value = bounded.x
+  targetCameraY.value = bounded.y
+
+  const zoomDelta = bounded.zoom - mapZoom.value
+  const xDelta = bounded.x - cameraX.value
+  const yDelta = bounded.y - cameraY.value
   const epsilon = 0.02
 
   if (Math.abs(zoomDelta) < epsilon && Math.abs(xDelta) < epsilon && Math.abs(yDelta) < epsilon) {
@@ -938,7 +935,7 @@ function tickCameraAnimation() {
 }
 
 function animateCameraToTargets() {
-  if (!motionEnabled.value) {
+  if (!motionEnabled.value || lowDetailMode.value) {
     mapZoom.value = targetZoom.value
     cameraX.value = targetCameraX.value
     cameraY.value = targetCameraY.value
@@ -952,9 +949,10 @@ function animateCameraToTargets() {
 }
 
 function applyCameraImmediately(nextX, nextY, nextZoom = mapZoom.value) {
-  mapZoom.value = nextZoom
-  cameraX.value = nextX
-  cameraY.value = nextY
+  const bounded = clampCameraPosition(nextX, nextY, nextZoom)
+  mapZoom.value = bounded.zoom
+  cameraX.value = bounded.x
+  cameraY.value = bounded.y
   syncCameraTargets()
 }
 
@@ -962,27 +960,26 @@ function scenePx(value) {
   return value * inverseSceneScale.value
 }
 
-function pxStyle(sizePx) {
-  return { fontSize: `${scenePx(sizePx)}px` }
-}
-
-function getBodyLabelOffset(body) {
-  return body.displayRadius + scenePx(16)
-}
-
-function getBodyLabelStyle(body) {
-  return pxStyle(body.id === 'sun' ? 10 : 9)
-}
-
 function isBodyLabelVisible(body) {
-  if (mapZoom.value < 90) return body.id !== 'moon'
-  if (!selectedWorldBodyId.value) return false
+  if (isDragging.value || dragState.active) return false
+  if (!isStageFocusMode.value) return body.id !== 'sun'
+
+  if (!selectedWorldBodyId.value) {
+    if (mapZoom.value < 120) return false
+    const distance = Math.hypot(body.x - cameraX.value, body.y - cameraY.value)
+    const revealRadius = 190 / mapScale.value
+    if (distance > revealRadius) return false
+    if (mapZoom.value < 180 && (body.id === 'moon' || body.id === 'uranus' || body.id === 'neptune')) return false
+    return true
+  }
+
   if (body.id === selectedWorldBodyId.value) return true
   return selectedWorldBodyId.value === 'moon' && body.id === 'earth'
 }
 
 function getStageClusterScale(stageId) {
   if (selectedStage.value?.id === stageId) return 1.22
+  if (!hoverEffectsEnabled.value) return 1
   if (hoveredStageId.value === stageId) return 1.35
   return 1
 }
@@ -995,28 +992,9 @@ function getStageClusterHitRadius(stageId) {
   return scenePx(20 * getStageClusterScale(stageId))
 }
 
-function getStageClusterCoreRadius(stageId) {
-  return scenePx(8 * getStageClusterScale(stageId))
-}
-
-function getStageClusterIndexY(stageId) {
-  return scenePx(-1 * getStageClusterScale(stageId))
-}
-
-function getStageClusterCountY(stageId) {
-  return scenePx(6 * getStageClusterScale(stageId))
-}
-
-function getStageClusterIndexStyle(stageId) {
-  return pxStyle(8 * getStageClusterScale(stageId))
-}
-
-function getStageClusterCountStyle(stageId) {
-  return pxStyle(6 * getStageClusterScale(stageId))
-}
-
 function getWorldNodeScale(worldId) {
   if (selectedWorld.value?.id === worldId) return 1.2
+  if (!hoverEffectsEnabled.value) return 1
   if (hoveredWorldId.value === worldId) return 1.35
   return 1
 }
@@ -1050,7 +1028,7 @@ function getWorldLabelY(world) {
 }
 
 function isWorldLabelVisible(world) {
-  if (hoveredWorldId.value === world.id) return true
+  if (hoverEffectsEnabled.value && hoveredWorldId.value === world.id) return true
   if (selectedWorld.value) return selectedWorld.value.id === world.id
   if (!showWorldLabels.value || mapZoom.value < 260) return false
   if (selectedStage.value && selectedStage.value.id !== world.chapterId) return false
@@ -1060,8 +1038,17 @@ function isWorldLabelVisible(world) {
 }
 
 function clientToViewBox(clientX, clientY) {
+  if (!viewportMetrics.ready) refreshViewportMetrics()
+
+  return {
+    x: ((clientX - viewportMetrics.left - viewportMetrics.offsetX) / viewportMetrics.renderWidth) * VIEWBOX_WIDTH,
+    y: ((clientY - viewportMetrics.top - viewportMetrics.offsetY) / viewportMetrics.renderHeight) * VIEWBOX_HEIGHT,
+  }
+}
+
+function refreshViewportMetrics() {
   const element = mapViewportRef.value
-  if (!element) return { x: VIEWBOX_CENTER.x, y: VIEWBOX_CENTER.y }
+  if (!element) return
 
   const rect = element.getBoundingClientRect()
   const rectAspect = rect.width / rect.height
@@ -1079,10 +1066,13 @@ function clientToViewBox(clientX, clientY) {
     offsetY = (rect.height - renderHeight) / 2
   }
 
-  return {
-    x: ((clientX - rect.left - offsetX) / renderWidth) * VIEWBOX_WIDTH,
-    y: ((clientY - rect.top - offsetY) / renderHeight) * VIEWBOX_HEIGHT,
-  }
+  viewportMetrics.left = rect.left
+  viewportMetrics.top = rect.top
+  viewportMetrics.renderWidth = renderWidth
+  viewportMetrics.renderHeight = renderHeight
+  viewportMetrics.offsetX = offsetX
+  viewportMetrics.offsetY = offsetY
+  viewportMetrics.ready = true
 }
 
 function viewToWorld(
@@ -1097,10 +1087,309 @@ function viewToWorld(
   }
 }
 
+function worldToView(x, y) {
+  return {
+    x: VIEWBOX_CENTER.x + (x - cameraX.value) * mapScale.value,
+    y: VIEWBOX_CENTER.y + (y - cameraY.value) * mapScale.value,
+  }
+}
+
+function worldRadiusToView(radius) {
+  return radius * mapScale.value
+}
+
+function viewUnitsForPx(px) {
+  if (!viewportMetrics.renderWidth) return px
+  return px * (VIEWBOX_WIDTH / viewportMetrics.renderWidth)
+}
+
+function getCanvasContext() {
+  const canvas = mapCanvasRef.value
+  if (!canvas) return null
+  const context = canvas.getContext('2d', { alpha: false, desynchronized: true })
+  if (!context) return null
+  const width = Math.max(1, Math.round(canvas.clientWidth))
+  const height = Math.max(1, Math.round(canvas.clientHeight))
+  const dpr = Math.max(1, Math.min(CANVAS_DPR_MAX, window.devicePixelRatio || 1))
+  const pixelWidth = Math.round(width * dpr)
+  const pixelHeight = Math.round(height * dpr)
+
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth
+    canvas.height = pixelHeight
+  }
+
+  context.setTransform(dpr, 0, 0, dpr, 0, 0)
+  context.imageSmoothingEnabled = false
+  return context
+}
+
+function updateMapPalette() {
+  const palette = getComputedStyle(document.documentElement)
+  mapPalette.accent = palette.getPropertyValue('--accent-color').trim() || '#00ffd9'
+  mapPalette.textPrimary = palette.getPropertyValue('--text-primary').trim() || '#ffffff'
+  mapPalette.textSecondary = palette.getPropertyValue('--text-secondary').trim() || '#a7adb7'
+}
+
+function scheduleMapRender() {
+  if (typeof window === 'undefined') return
+  if (mapRenderFrame) return
+  mapRenderFrame = requestAnimationFrame(() => {
+    mapRenderFrame = null
+    drawMapCanvas()
+  })
+}
+
+function clearMapHover() {
+  const hadHover = Boolean(hoveredWorldId.value || hoveredStageId.value)
+  hoveredWorldId.value = null
+  hoveredStageId.value = null
+  if (hadHover) scheduleMapRender()
+}
+
+function findHoveredEntity(clientX, clientY) {
+  const viewPoint = clientToViewBox(clientX, clientY)
+  const worldPoint = viewToWorld(viewPoint, mapScale.value, cameraX.value, cameraY.value)
+
+  if (showWorldMarkers.value) {
+    let bestWorld = null
+    let bestDistance = Number.POSITIVE_INFINITY
+
+    for (const world of visibleWorldNodes.value) {
+      const distance = Math.hypot(world.x - worldPoint.x, world.y - worldPoint.y)
+      if (distance > getWorldNodeHitRadius(world)) continue
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestWorld = world
+      }
+    }
+
+    if (bestWorld) return { type: 'world', id: bestWorld.id }
+  }
+
+  if (showStageClusters.value) {
+    let bestStage = null
+    let bestDistance = Number.POSITIVE_INFINITY
+
+    for (const stage of stageClusters.value) {
+      const distance = Math.hypot(stage.x - worldPoint.x, stage.y - worldPoint.y)
+      const body = bodyById.value[stage.bodyId]
+      const stageHitRadius = Math.max(
+        getStageClusterHitRadius(stage.id),
+        body ? (body.displayRadius + 12) : 28
+      )
+      if (distance > stageHitRadius) continue
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestStage = stage
+      }
+    }
+
+    if (bestStage) return { type: 'stage', id: bestStage.id }
+  }
+
+  return null
+}
+
+function drawMapCanvas() {
+  refreshViewportMetrics()
+  const ctx = getCanvasContext()
+  if (!ctx) return
+  const accent = mapPalette.accent
+  const textPrimary = mapPalette.textPrimary
+  const textSecondary = mapPalette.textSecondary
+  const interactionCut = isDragging.value || dragState.active || isWheelInteracting.value
+
+  const canvas = mapCanvasRef.value
+  const width = canvas?.clientWidth || 0
+  const height = canvas?.clientHeight || 0
+
+  ctx.clearRect(0, 0, width, height)
+  ctx.fillStyle = 'rgba(6, 9, 14, 0.95)'
+  ctx.fillRect(0, 0, width, height)
+
+  ctx.save()
+  ctx.translate(viewportMetrics.offsetX, viewportMetrics.offsetY)
+  ctx.scale(viewportMetrics.renderWidth / VIEWBOX_WIDTH, viewportMetrics.renderHeight / VIEWBOX_HEIGHT)
+
+  const px1 = viewUnitsForPx(1)
+  const px2 = viewUnitsForPx(2)
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+  const stars = interactionCut ? renderedStarField.value.filter((_, index) => index % 2 === 0) : renderedStarField.value
+  for (const star of stars) {
+    ctx.globalAlpha = star.opacity
+    ctx.beginPath()
+    ctx.arc(star.x, star.y, Math.max(viewUnitsForPx(star.r * 1.2), px1 * 0.5), 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.globalAlpha = 1
+
+  const centerView = worldToView(solarCenter.x, solarCenter.y)
+
+  ctx.strokeStyle = 'rgba(157, 168, 194, 0.26)'
+  ctx.lineWidth = Math.max(px1, viewUnitsForPx(1.3))
+  ctx.setLineDash([viewUnitsForPx(7), viewUnitsForPx(11)])
+  for (const track of renderedSolarOrbitTracks.value) {
+    ctx.beginPath()
+    ctx.arc(centerView.x, centerView.y, worldRadiusToView(track.r), 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.setLineDash([])
+
+  if (!interactionCut && !lowDetailMode.value && mapZoom.value >= 180) {
+    ctx.strokeStyle = 'rgba(160, 174, 220, 0.22)'
+    ctx.lineWidth = viewUnitsForPx(8)
+    ctx.setLineDash([viewUnitsForPx(1), viewUnitsForPx(12)])
+    ctx.beginPath()
+    ctx.arc(centerView.x, centerView.y, worldRadiusToView(asteroidBeltRadius), 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+
+  if (!interactionCut && renderedWorldOrbitTracks.value.length) {
+    ctx.strokeStyle = `${accent}70`
+    ctx.lineWidth = viewUnitsForPx(1.2)
+    ctx.setLineDash([viewUnitsForPx(4), viewUnitsForPx(8)])
+    for (const track of renderedWorldOrbitTracks.value) {
+      const anchor = worldToView(track.cx, track.cy)
+      ctx.beginPath()
+      ctx.arc(anchor.x, anchor.y, worldRadiusToView(track.r), 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.setLineDash([])
+  }
+
+  const bodyColor = {
+    sun: '#f7b950',
+    mercury: '#9ba3b0',
+    venus: '#c99758',
+    earth: '#4b7fe6',
+    moon: '#9aa3b3',
+    mars: '#c55a44',
+    jupiter: '#d3b18c',
+    saturn: '#cfa36d',
+    uranus: '#8dc7dd',
+    neptune: '#718cd6',
+  }
+
+  for (const body of renderedSolarBodies.value) {
+    const point = worldToView(body.x, body.y)
+    const radius = worldRadiusToView(body.displayRadius)
+
+    if (body.id === 'sun' && !performanceCutMode.value) {
+      ctx.fillStyle = 'rgba(255, 183, 77, 0.18)'
+      ctx.beginPath()
+      ctx.arc(point.x, point.y, radius * 1.8, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    if (body.id === 'saturn' && !performanceCutMode.value) {
+      ctx.strokeStyle = 'rgba(231, 208, 145, 0.82)'
+      ctx.lineWidth = viewUnitsForPx(4)
+      ctx.beginPath()
+      ctx.ellipse(point.x, point.y, radius * 1.95, radius * 0.7, 0, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+
+    ctx.fillStyle = bodyColor[body.id] || '#9aa7be'
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)'
+    ctx.lineWidth = viewUnitsForPx(1)
+    ctx.beginPath()
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+
+    if (interactionCut || !isBodyLabelVisible(body)) continue
+    ctx.fillStyle = textPrimary
+    ctx.font = `${Math.max(viewUnitsForPx(body.id === 'sun' ? 10 : 9), px2)}px Inter, system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(truncateLabel(body.label, 12), point.x, point.y + radius + viewUnitsForPx(16))
+  }
+
+  if (showStageClusters.value) {
+    for (const cluster of stageClusters.value) {
+      const point = worldToView(cluster.x, cluster.y)
+      const ringRadius = worldRadiusToView(getStageClusterRingRadius(cluster.id))
+      const isActive = selectedStage.value?.id === cluster.id
+      const body = bodyById.value[cluster.bodyId]
+      const bodyRadius = worldRadiusToView(body?.displayRadius || 16)
+
+      ctx.strokeStyle = isActive ? accent : 'rgba(157, 168, 194, 0.44)'
+      ctx.lineWidth = viewUnitsForPx(1.2)
+      ctx.beginPath()
+      ctx.arc(point.x, point.y, Math.max(ringRadius, bodyRadius + viewUnitsForPx(4)), 0, Math.PI * 2)
+      ctx.stroke()
+
+      if (interactionCut) continue
+
+      ctx.fillStyle = textSecondary
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = `${Math.max(viewUnitsForPx(8), px2)}px Inter, system-ui, sans-serif`
+      ctx.fillText(
+        truncateLabel(cluster.title, 18),
+        point.x,
+        point.y + bodyRadius + viewUnitsForPx(14)
+      )
+
+      if (isActive || hoveredStageId.value === cluster.id) {
+        ctx.strokeStyle = `${accent}88`
+        ctx.lineWidth = viewUnitsForPx(1)
+        ctx.beginPath()
+        ctx.arc(point.x, point.y, bodyRadius + viewUnitsForPx(10), 0, Math.PI * 2)
+        ctx.stroke()
+      }
+    }
+  }
+
+  if (showWorldMarkers.value) {
+    for (const world of visibleWorldNodes.value) {
+      const point = worldToView(world.x, world.y)
+      const isActive = selectedWorld.value?.id === world.id
+      const isMuted = selectedStage.value && selectedStage.value.id !== world.chapterId
+      const alpha = isMuted ? 0.42 : 1
+
+      ctx.globalAlpha = alpha
+      ctx.strokeStyle = isActive ? accent : `${accent}88`
+      ctx.lineWidth = viewUnitsForPx(1)
+      ctx.beginPath()
+      ctx.arc(point.x, point.y, worldRadiusToView(getWorldNodeRingRadius(world)), 0, Math.PI * 2)
+      ctx.stroke()
+
+      ctx.fillStyle = 'rgba(15, 24, 36, 0.9)'
+      ctx.beginPath()
+      ctx.arc(point.x, point.y, worldRadiusToView(getWorldNodeCoreRadius(world)), 0, Math.PI * 2)
+      ctx.fill()
+
+      ctx.fillStyle = isActive ? accent : textPrimary
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = `${Math.max(viewUnitsForPx(getWorldNodeTextSize(world.id)), px2)}px Inter, system-ui, sans-serif`
+      ctx.fillText(world.mapTag || buildMapTag(world.name), point.x, point.y)
+
+      if (!interactionCut && isWorldLabelVisible(world)) {
+        ctx.font = `${Math.max(viewUnitsForPx(getWorldLabelSize(world.id)), px2)}px Inter, system-ui, sans-serif`
+        ctx.textAlign = world.labelAnchor
+        ctx.fillText(
+          truncateLabel(world.name, 18),
+          point.x + worldRadiusToView(getWorldLabelX(world)),
+          point.y + worldRadiusToView(getWorldLabelY(world))
+        )
+      }
+    }
+  }
+
+  ctx.globalAlpha = 1
+  ctx.restore()
+}
+
 function focusCamera(nextX, nextY, nextZoom = targetZoom.value, immediate = false) {
-  targetZoom.value = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
-  targetCameraX.value = nextX
-  targetCameraY.value = nextY
+  const bounded = clampCameraPosition(nextX, nextY, nextZoom)
+  targetZoom.value = bounded.zoom
+  targetCameraX.value = bounded.x
+  targetCameraY.value = bounded.y
 
   if (immediate) {
     applyCameraImmediately(targetCameraX.value, targetCameraY.value, targetZoom.value)
@@ -1111,15 +1400,18 @@ function focusCamera(nextX, nextY, nextZoom = targetZoom.value, immediate = fals
 }
 
 function resetCamera() {
+  focusedStageId.value = null
   selectedEntity.value = null
   isPanelOpen.value = false
   focusCamera(solarCenter.x, solarCenter.y, DEFAULT_ZOOM)
 }
 
 function stepZoom(direction) {
-  const factor = direction > 0 ? 1.22 : 0.82
-  targetZoom.value = clamp(targetZoom.value * factor, MIN_ZOOM, MAX_ZOOM)
-  animateCameraToTargets()
+  markInteraction()
+  const factor = direction > 0 ? 1.5 : (1 / 1.5)
+  const nextZoom = clamp(targetZoom.value * factor, MIN_ZOOM, effectiveMaxZoom.value)
+  const bounded = clampCameraPosition(targetCameraX.value, targetCameraY.value, nextZoom)
+  focusCamera(bounded.x, bounded.y, bounded.zoom)
 }
 
 function toggleExplorer() {
@@ -1127,22 +1419,73 @@ function toggleExplorer() {
 }
 
 function onWheel(event) {
-  const viewPoint = clientToViewBox(event.clientX, event.clientY)
-  const pointerWorld = viewToWorld(viewPoint)
-  const zoomFactor = event.deltaY < 0 ? 1.16 : 0.84
-  const nextZoom = clamp(targetZoom.value * zoomFactor, MIN_ZOOM, MAX_ZOOM)
-  const nextScale = nextZoom / 100
+  markInteraction()
+  isWheelInteracting.value = true
+  if (wheelInteractionTimeout) {
+    clearTimeout(wheelInteractionTimeout)
+    wheelInteractionTimeout = null
+  }
+  wheelState.clientX = event.clientX
+  wheelState.clientY = event.clientY
+  wheelState.deltaX += event.deltaX
+  wheelState.deltaY += event.deltaY
+  wheelState.pinchLike = wheelState.pinchLike || event.ctrlKey || event.metaKey
 
-  targetZoom.value = nextZoom
-  targetCameraX.value = pointerWorld.x - (viewPoint.x - VIEWBOX_CENTER.x) / nextScale
-  targetCameraY.value = pointerWorld.y - (viewPoint.y - VIEWBOX_CENTER.y) / nextScale
-  animateCameraToTargets()
+  if (wheelFrame) return
+
+  wheelFrame = requestAnimationFrame(() => {
+    wheelFrame = null
+    const absX = Math.abs(wheelState.deltaX)
+    const absY = Math.abs(wheelState.deltaY)
+    const panMode = !wheelState.pinchLike && (absX > 0.1 || absY < 24)
+
+    if (panMode) {
+      const nextCameraX = targetCameraX.value - ((wheelState.deltaX * WHEEL_PAN_SENSITIVITY) / mapScale.value)
+      const nextCameraY = targetCameraY.value - ((wheelState.deltaY * WHEEL_PAN_SENSITIVITY) / mapScale.value)
+      const bounded = clampCameraPosition(nextCameraX, nextCameraY, targetZoom.value)
+      applyCameraImmediately(bounded.x, bounded.y, bounded.zoom)
+      wheelState.deltaX = 0
+      wheelState.deltaY = 0
+      wheelState.pinchLike = false
+      return
+    }
+
+    const viewPoint = clientToViewBox(wheelState.clientX, wheelState.clientY)
+    const pointerWorld = viewToWorld(viewPoint)
+    const boundedDelta = clamp(wheelState.deltaY, -420, 420)
+    const zoomFactor = Math.exp(-boundedDelta * WHEEL_ZOOM_SENSITIVITY)
+    wheelState.deltaX = 0
+    wheelState.deltaY = 0
+    wheelState.pinchLike = false
+    const nextZoom = clamp(targetZoom.value * zoomFactor, MIN_ZOOM, effectiveMaxZoom.value)
+    const nextScale = nextZoom / 100
+
+    const nextCameraX = pointerWorld.x - (viewPoint.x - VIEWBOX_CENTER.x) / nextScale
+    const nextCameraY = pointerWorld.y - (viewPoint.y - VIEWBOX_CENTER.y) / nextScale
+    const bounded = clampCameraPosition(nextCameraX, nextCameraY, nextZoom)
+    applyCameraImmediately(bounded.x, bounded.y, bounded.zoom)
+    wheelInteractionTimeout = setTimeout(() => {
+      isWheelInteracting.value = false
+      wheelInteractionTimeout = null
+      scheduleMapRender()
+    }, 120)
+  })
 }
 
 function onDoubleClick(event) {
+  markInteraction()
+  const hovered = findHoveredEntity(event.clientX, event.clientY)
+  if (hovered?.type === 'stage') {
+    selectBodyByStage(hovered.id, { force: true })
+    return
+  }
+  if (hovered?.type === 'world') {
+    selectWorld(hovered.id, { force: true })
+    return
+  }
   const viewPoint = clientToViewBox(event.clientX, event.clientY)
   const worldPoint = viewToWorld(viewPoint)
-  focusCamera(worldPoint.x, worldPoint.y, Math.min(MAX_ZOOM, targetZoom.value + 80))
+  focusCamera(worldPoint.x, worldPoint.y, Math.min(effectiveMaxZoom.value, targetZoom.value + 50))
 }
 
 function isInteractiveTarget(target) {
@@ -1153,7 +1496,9 @@ function onPointerDown(event) {
   if (event.button !== undefined && event.button !== 0) return
   if (isInteractiveTarget(event.target)) return
 
+  refreshViewportMetrics()
   stopCameraAnimation()
+  stopDragFrame()
   const point = clientToViewBox(event.clientX, event.clientY)
   dragState.active = true
   dragState.pointerId = event.pointerId
@@ -1162,40 +1507,110 @@ function onPointerDown(event) {
   dragState.startCameraX = cameraX.value
   dragState.startCameraY = cameraY.value
   dragState.moved = false
+  markInteraction()
   mapViewportRef.value?.setPointerCapture?.(event.pointerId)
 }
 
 function onPointerMove(event) {
-  if (!dragState.active || dragState.pointerId !== event.pointerId) return
-
-  const point = clientToViewBox(event.clientX, event.clientY)
-  const deltaX = point.x - dragState.startX
-  const deltaY = point.y - dragState.startY
-
-  if (!dragState.moved && Math.hypot(deltaX, deltaY) > 4) {
-    dragState.moved = true
-    isDragging.value = true
+  if (!dragState.active || dragState.pointerId !== event.pointerId) {
+    if (dragState.active) return
+    if (isInteractiveTarget(event.target)) {
+      if (mapViewportRef.value && !isDragging.value) {
+        mapViewportRef.value.style.cursor = 'default'
+      }
+      clearMapHover()
+      return
+    }
+    const hovered = findHoveredEntity(event.clientX, event.clientY)
+    if (!hoverEffectsEnabled.value) {
+      if (hoveredWorldId.value || hoveredStageId.value) {
+        hoveredWorldId.value = null
+        hoveredStageId.value = null
+        scheduleMapRender()
+      }
+      if (mapViewportRef.value && !isDragging.value) {
+        mapViewportRef.value.style.cursor = hovered ? 'pointer' : 'grab'
+      }
+      return
+    }
+    const nextWorld = hovered?.type === 'world' ? hovered.id : null
+    const nextStage = hovered?.type === 'stage' ? hovered.id : null
+    const hasChanged = hoveredWorldId.value !== nextWorld || hoveredStageId.value !== nextStage
+    hoveredWorldId.value = nextWorld
+    hoveredStageId.value = nextStage
+    if (mapViewportRef.value && !isDragging.value) {
+      mapViewportRef.value.style.cursor = hovered ? 'pointer' : 'grab'
+    }
+    if (hasChanged) scheduleMapRender()
+    return
   }
 
-  const nextCameraX = dragState.startCameraX - (deltaX / mapScale.value)
-  const nextCameraY = dragState.startCameraY - (deltaY / mapScale.value)
-  applyCameraImmediately(nextCameraX, nextCameraY, mapZoom.value)
+  dragState.lastClientX = event.clientX
+  dragState.lastClientY = event.clientY
+
+  if (dragFrame) return
+
+  dragFrame = requestAnimationFrame(() => {
+    dragFrame = null
+    if (!dragState.active) return
+
+    const point = clientToViewBox(dragState.lastClientX, dragState.lastClientY)
+    const deltaX = point.x - dragState.startX
+    const deltaY = point.y - dragState.startY
+
+    if (!dragState.moved && Math.hypot(deltaX, deltaY) > 2) {
+      dragState.moved = true
+      isDragging.value = true
+    }
+
+    const nextCameraX = dragState.startCameraX - (deltaX / mapScale.value)
+    const nextCameraY = dragState.startCameraY - (deltaY / mapScale.value)
+    markInteraction()
+    const bounded = clampCameraPosition(nextCameraX, nextCameraY, mapZoom.value)
+    applyCameraImmediately(bounded.x, bounded.y, bounded.zoom)
+  })
 }
 
 function onPointerUp(event) {
   if (!dragState.active || dragState.pointerId !== event.pointerId) return
 
   mapViewportRef.value?.releasePointerCapture?.(event.pointerId)
+  const dragged = dragState.moved
 
-  if (dragState.moved) {
+  if (dragged) {
     suppressClickUntil.value = Date.now() + 140
   }
 
   dragState.active = false
   dragState.pointerId = null
   dragState.moved = false
+  dragState.lastClientX = 0
+  dragState.lastClientY = 0
+  stopDragFrame()
   isDragging.value = false
+  if (mapViewportRef.value) {
+    mapViewportRef.value.style.cursor = 'grab'
+  }
+
+  if (!dragged && Date.now() >= suppressClickUntil.value) {
+    const hovered = findHoveredEntity(event.clientX, event.clientY)
+    if (hovered?.type === 'stage') {
+      selectBodyByStage(hovered.id)
+    } else if (hovered?.type === 'world') {
+      selectWorld(hovered.id)
+    }
+  }
+
   syncCameraTargets()
+  scheduleMapRender()
+}
+
+function onPointerLeave() {
+  if (dragState.active) return
+  if (mapViewportRef.value) {
+    mapViewportRef.value.style.cursor = 'grab'
+  }
+  clearMapHover()
 }
 
 function selectStage(stageId, options = {}) {
@@ -1207,14 +1622,49 @@ function selectStage(stageId, options = {}) {
   selectedEntity.value = { type: 'stage', id: stageId }
   isPanelOpen.value = true
   if (isMobileView.value) explorerOpen.value = false
-  const targetZoom = clamp(82000 / Math.max(stage.radius, 180), 155, 340)
-  focusCamera(stage.x, stage.y, targetZoom)
+}
+
+function selectBody(bodyId, options = {}) {
+  if (!options.force && Date.now() < suppressClickUntil.value) return
+  const body = bodyById.value[bodyId]
+  if (!body) return
+
+  selectedEntity.value = { type: 'body', id: bodyId }
+  isPanelOpen.value = true
+  if (isMobileView.value) explorerOpen.value = false
+}
+
+function selectBodyByStage(stageId, options = {}) {
+  const stage = stagePlanetById.value[stageId]
+  if (!stage) return
+  selectBody(stage.bodyId, options)
+}
+
+function openStageWorlds(stageId, options = {}) {
+  if (!options.force && Date.now() < suppressClickUntil.value) return
+
+  const stage = stageClusters.value.find((cluster) => cluster.id === stageId)
+  if (!stage) return
+
+  focusedStageId.value = stage.id
+  selectedEntity.value = { type: 'stage', id: stageId }
+  isPanelOpen.value = true
+  if (isMobileView.value) explorerOpen.value = false
+  const minStageZoom = lowDetailMode.value ? 180 : 220
+  const targetZoom = clamp(98000 / Math.max(stage.radius, 180), minStageZoom, effectiveMaxZoom.value)
+  focusCamera(stage.x, stage.y, Math.max(mapZoom.value, targetZoom))
 }
 
 function selectWorld(worldId, options = {}) {
   if (!options.force && Date.now() < suppressClickUntil.value) return
 
-  const worldNode = worldMapNodes.value.find((world) => world.id === worldId)
+  let worldNode = visibleWorldNodes.value.find((world) => world.id === worldId)
+  if (!worldNode) {
+    const fallbackWorld = store.worlds.find((world) => world.id === worldId)
+    if (!fallbackWorld) return
+    focusedStageId.value = fallbackWorld.chapterId || null
+    worldNode = focusedWorldNodes.value.find((world) => world.id === worldId)
+  }
   if (!worldNode) return
 
   activateWorld(worldId)
@@ -1222,17 +1672,21 @@ function selectWorld(worldId, options = {}) {
   isPanelOpen.value = true
   if (isMobileView.value) explorerOpen.value = false
   const focusBody = bodyById.value[worldNode.bodyId] || worldNode
-  const focusZoom = worldNode.anchorType === 'surface' ? 920 : 720
+  const focusZoom = lowDetailMode.value
+    ? (worldNode.anchorType === 'surface' ? 280 : 230)
+    : (worldNode.anchorType === 'surface' ? 920 : 720)
   focusCamera(focusBody.x, focusBody.y, Math.max(mapZoom.value, focusZoom))
 }
 
 function closePanel() {
   isPanelOpen.value = false
+  scheduleMapRender()
 }
 
 function closeMobilePanels() {
   explorerOpen.value = false
   isPanelOpen.value = false
+  scheduleMapRender()
 }
 
 function activateWorld(worldId) {
@@ -1250,19 +1704,94 @@ function openWorldMissions(worldId) {
   router.push('/missions')
 }
 
+watchEffect(() => {
+  mapZoom.value
+  cameraX.value
+  cameraY.value
+  hoveredWorldId.value
+  hoveredStageId.value
+  selectedStage.value?.id
+  selectedWorld.value?.id
+  showStageClusters.value
+  showWorldMarkers.value
+  showWorldLabels.value
+  renderedStarField.value.length
+  renderedSolarOrbitTracks.value.length
+  renderedWorldOrbitTracks.value.length
+  renderedSolarBodies.value.length
+  scheduleMapRender()
+})
+
+watchEffect(() => {
+  const stageId = focusedStageId.value
+  if (!stageId) return
+  if (targetZoom.value >= STAGE_FOCUS_EXIT_ZOOM && mapZoom.value >= STAGE_FOCUS_EXIT_ZOOM) return
+
+  const stage = stagePlanetById.value[stageId]
+  focusedStageId.value = null
+  if (stage && selectedEntity.value?.type !== 'stage') {
+    selectedEntity.value = { type: 'body', id: stage.bodyId }
+  }
+})
+
+watchEffect(() => {
+  systemStore.accentColor
+  systemStore.systemTheme
+  updateMapPalette()
+  scheduleMapRender()
+})
+
 onMounted(() => {
+  if (typeof navigator !== 'undefined') {
+    const cores = navigator.hardwareConcurrency ?? 8
+    const memory = navigator.deviceMemory ?? 8
+    lowPowerDevice.value = cores <= 4 || memory <= 4
+  }
+
+  reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotionHandler = (event) => {
+    prefersReducedMotion.value = event.matches
+  }
+  prefersReducedMotion.value = reducedMotionQuery.matches
+  reducedMotionQuery.addEventListener('change', reducedMotionHandler)
+
   resizeHandler = () => {
     isMobileView.value = window.innerWidth <= MOBILE_BREAKPOINT
+    viewportMetrics.ready = false
+    refreshViewportMetrics()
     if (!isMobileView.value) return
     explorerOpen.value = false
   }
 
   resizeHandler()
   window.addEventListener('resize', resizeHandler)
+  updateMapPalette()
+  if (mapViewportRef.value) {
+    mapViewportRef.value.style.cursor = 'grab'
+  }
+  scheduleMapRender()
 })
 
 onBeforeUnmount(() => {
   stopCameraAnimation()
+  stopDragFrame()
+  if (wheelFrame) {
+    cancelAnimationFrame(wheelFrame)
+    wheelFrame = null
+  }
+  if (mapRenderFrame) {
+    cancelAnimationFrame(mapRenderFrame)
+    mapRenderFrame = null
+  }
+  if (wheelInteractionTimeout) {
+    clearTimeout(wheelInteractionTimeout)
+    wheelInteractionTimeout = null
+  }
+  if (reducedMotionQuery && reducedMotionHandler) {
+    reducedMotionQuery.removeEventListener('change', reducedMotionHandler)
+    reducedMotionQuery = null
+    reducedMotionHandler = null
+  }
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler)
     resizeHandler = null
@@ -1274,12 +1803,12 @@ onBeforeUnmount(() => {
 .stages-page {
   height: 100%;
   overflow: hidden;
-  background: var(--bg-main);
+  background: transparent;
 }
 
 .map-layout {
   height: 100%;
-  padding: 10px;
+  padding: 0;
   box-sizing: border-box;
   position: relative;
   display: flex;
@@ -1301,6 +1830,7 @@ onBeforeUnmount(() => {
   transition:
     opacity 140ms ease,
     transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, opacity;
 }
 
 .explorer-panel.is-open {
@@ -1415,7 +1945,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
 .map-toolbar {
@@ -1445,8 +1975,8 @@ onBeforeUnmount(() => {
   position: relative;
   flex: 1;
   min-height: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 18px;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
   background:
     radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-color) 12%, transparent), transparent 48%),
@@ -1455,11 +1985,23 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
+.map-inline-title {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  z-index: 7;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-secondary) 86%, white 14%);
+  pointer-events: none;
+}
+
 .map-viewport.is-dragging {
   cursor: grabbing;
 }
 
-.solar-map {
+.solar-canvas {
   width: 100%;
   height: 100%;
   display: block;
@@ -1586,7 +2128,6 @@ onBeforeUnmount(() => {
   fill: none;
   stroke: color-mix(in srgb, var(--text-secondary) 44%, transparent);
   stroke-width: 1.1;
-  transition: stroke 180ms ease;
 }
 
 .stage-cluster-hit,
@@ -1599,23 +2140,18 @@ onBeforeUnmount(() => {
   fill: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
   stroke: color-mix(in srgb, var(--text-primary) 35%, transparent);
   stroke-width: 0.9;
-  transition:
-    fill 180ms ease,
-    stroke 180ms ease;
 }
 
 .stage-cluster-index {
   fill: var(--text-primary);
   font-size: 8px;
   font-weight: 700;
-  transition: fill 180ms ease;
 }
 
 .stage-cluster-count {
   fill: var(--text-secondary);
   font-size: 6px;
   letter-spacing: 0.12em;
-  transition: fill 180ms ease;
 }
 
 .stage-cluster.is-active .stage-cluster-ring,
@@ -1627,16 +2163,12 @@ onBeforeUnmount(() => {
   fill: none;
   stroke: color-mix(in srgb, var(--accent-color) 52%, transparent);
   stroke-width: 1;
-  transition: stroke 160ms ease;
 }
 
 .world-node-core {
   fill: color-mix(in srgb, var(--bg-elevated) 90%, transparent);
   stroke: color-mix(in srgb, var(--text-primary) 42%, transparent);
   stroke-width: 0.9;
-  transition:
-    fill 160ms ease,
-    stroke 160ms ease;
 }
 
 .world-node-tag {
@@ -1645,7 +2177,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 0.04em;
   pointer-events: none;
-  transition: fill 160ms ease;
 }
 
 .world-node-label {
@@ -1653,7 +2184,6 @@ onBeforeUnmount(() => {
   font-size: 9px;
   font-weight: 600;
   pointer-events: none;
-  transition: fill 160ms ease;
 }
 
 .world-node.is-active .world-node-ring,
@@ -1668,6 +2198,100 @@ onBeforeUnmount(() => {
 
 .world-node.is-muted {
   opacity: 0.42;
+}
+
+.map-viewport.is-low-detail .stage-cluster-ring,
+.map-viewport.is-low-detail .stage-cluster-core,
+.map-viewport.is-low-detail .stage-cluster-index,
+.map-viewport.is-low-detail .stage-cluster-count,
+.map-viewport.is-low-detail .world-node-ring,
+.map-viewport.is-low-detail .world-node-core,
+.map-viewport.is-low-detail .world-node-tag,
+.map-viewport.is-low-detail .world-node-label {
+  transition: none;
+}
+
+.map-viewport.is-performance-cut .map-control-button,
+.map-viewport.is-performance-cut .map-zoom-pill,
+.map-viewport.is-performance-cut .sun-aura,
+.map-viewport.is-performance-cut .saturn-ring {
+  box-shadow: none;
+  filter: none;
+}
+
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .stage-cluster-ring {
+  transition: stroke 0.1s linear;
+}
+
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .stage-cluster-core {
+  transition: fill 0.1s linear, stroke 0.1s linear;
+}
+
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .stage-cluster-index,
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .stage-cluster-count,
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .world-node-tag,
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .world-node-label {
+  transition: fill 0.1s linear;
+}
+
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .world-node-ring {
+  transition: stroke 0.1s linear;
+}
+
+:global(html[data-animations='true']) .map-viewport:not(.is-performance-cut) .world-node-core {
+  transition: fill 0.1s linear, stroke 0.1s linear;
+}
+
+:global(html[data-animations='true']) .explorer-panel,
+:global(html[data-animations='true']) .detail-panel {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+:global(html[data-animations='true']) .explorer-card-button,
+:global(html[data-animations='true']) .explorer-world-card,
+:global(html[data-animations='true']) .list-item,
+:global(html[data-animations='true']) .mission-item,
+:global(html[data-animations='true']) .panel-metric,
+:global(html[data-animations='true']) .map-control-button,
+:global(html[data-animations='true']) .explorer-rail {
+  transition:
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 140ms linear,
+    background-color 140ms linear,
+    box-shadow 160ms ease,
+    color 120ms linear !important;
+}
+
+:global(html[data-animations='true']) .explorer-card-button:hover,
+:global(html[data-animations='true']) .explorer-world-card:hover,
+:global(html[data-animations='true']) .list-item:hover,
+:global(html[data-animations='true']) .mission-item:hover,
+:global(html[data-animations='true']) .panel-metric:hover {
+  transform: translate3d(0, -2px, 0);
+  border-color: color-mix(in srgb, var(--accent-color) 46%, var(--border-color));
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.2);
+}
+
+:global(html[data-animations='true']) .map-control-button:hover,
+:global(html[data-animations='true']) .explorer-rail:hover {
+  transform: translate3d(0, -1px, 0);
+  border-color: color-mix(in srgb, var(--accent-color) 56%, var(--border-color));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+}
+
+:global(html[data-animations='false']) .explorer-panel,
+:global(html[data-animations='false']) .detail-panel,
+:global(html[data-animations='false']) .stage-cluster-ring,
+:global(html[data-animations='false']) .stage-cluster-core,
+:global(html[data-animations='false']) .stage-cluster-index,
+:global(html[data-animations='false']) .stage-cluster-count,
+:global(html[data-animations='false']) .world-node-ring,
+:global(html[data-animations='false']) .world-node-core,
+:global(html[data-animations='false']) .world-node-tag,
+:global(html[data-animations='false']) .world-node-label {
+  transition: none !important;
 }
 
 .map-hint {
@@ -1719,6 +2343,7 @@ onBeforeUnmount(() => {
   transition:
     opacity 140ms ease,
     transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, opacity;
 }
 
 .detail-panel.is-open {

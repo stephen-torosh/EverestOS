@@ -1,6 +1,8 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 
+import { generateDaniloReplyWithLocalModels, getLocalLlmRuntimeLabel } from '@/services/localLlm'
+
 const STORAGE_KEYS = {
   activeSection: 'everest.incubator.activeSection',
   activeThread: 'everest.incubator.activeThread',
@@ -62,22 +64,267 @@ function resolveProjectStage(progress) {
   return 'idea'
 }
 
+const WORKSPACE_FILE_KINDS = new Set([
+  'chat',
+  'documentation',
+  'notebook',
+  'journal',
+  'reference',
+  'todo',
+  'mindmap',
+  'roadmap',
+  'decision',
+  'api',
+  'config',
+  'test',
+  'map',
+  'flow',
+  'shotlist',
+  'audio',
+  'motion',
+  'timeline',
+  'storyboard',
+  'scene',
+  'sim',
+  'entity',
+  'mission',
+  'js',
+  'ts',
+  'logic',
+  'schema',
+  'note',
+  'log',
+  'brief',
+  'research',
+  'forge',
+  'plan',
+  'spec',
+  'system',
+  'canvas',
+])
+const WORKSPACE_DECKS = new Set(['motion', 'sim', 'code', 'research', 'forge'])
+const WORKSPACE_KIND_TO_DECK = {
+  chat: 'research',
+  documentation: 'research',
+  notebook: 'research',
+  journal: 'research',
+  reference: 'research',
+  todo: 'forge',
+  mindmap: 'forge',
+  roadmap: 'forge',
+  decision: 'forge',
+  api: 'code',
+  config: 'code',
+  test: 'code',
+  map: 'sim',
+  flow: 'sim',
+  shotlist: 'motion',
+  audio: 'motion',
+  motion: 'motion',
+  timeline: 'motion',
+  storyboard: 'motion',
+  scene: 'sim',
+  sim: 'sim',
+  entity: 'sim',
+  mission: 'sim',
+  js: 'code',
+  ts: 'code',
+  logic: 'code',
+  schema: 'code',
+  note: 'research',
+  log: 'research',
+  brief: 'research',
+  research: 'research',
+  forge: 'forge',
+  plan: 'forge',
+  spec: 'forge',
+  system: 'forge',
+  canvas: 'sim',
+}
+const LEGACY_FILE_KIND_MAP = {
+  brief: 'forge',
+  spec: 'spec',
+  asset: 'scene',
+  note: 'log',
+}
+const DEFAULT_WORKSPACE_PRESETS = [
+  {
+    id: 'motion',
+    title: 'Motion',
+    icon: '✦',
+    subtitle: 'Animations and explainers',
+    family: 'motion',
+    allowedKinds: ['motion', 'timeline', 'storyboard', 'shotlist', 'audio', 'chat'],
+  },
+  {
+    id: 'sim',
+    title: 'Simulation',
+    icon: '◈',
+    subtitle: '3D scenes and mission logic',
+    family: 'canvas',
+    allowedKinds: ['scene', 'sim', 'entity', 'mission', 'map', 'flow', 'canvas', 'chat'],
+  },
+  {
+    id: 'code',
+    title: 'Code',
+    icon: '</>',
+    subtitle: 'Scripts, schemas, and systems',
+    family: 'canvas',
+    allowedKinds: ['js', 'ts', 'logic', 'schema', 'api', 'config', 'test', 'chat'],
+  },
+  {
+    id: 'research',
+    title: 'Research',
+    icon: '▣',
+    subtitle: 'Notes, chats, and references',
+    family: 'log',
+    allowedKinds: ['chat', 'note', 'notebook', 'journal', 'log', 'documentation', 'brief', 'reference', 'research'],
+  },
+  {
+    id: 'forge',
+    title: 'Forge',
+    icon: '⬢',
+    subtitle: 'Production blueprints and plans',
+    family: 'forge',
+    allowedKinds: ['forge', 'plan', 'todo', 'mindmap', 'roadmap', 'decision', 'spec', 'system', 'chat'],
+  },
+]
+const WORKSPACE_PROFILE_IDS = ['motion', 'sim', 'code', 'research', 'forge']
+
+function slugifyWorkspaceId(value, fallback = 'workspace') {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return cleaned || fallback
+}
+
+function normalizeWorkspaceFileKind(kind) {
+  const normalized = String(kind || '')
+    .replace('.', '')
+    .trim()
+    .toLowerCase()
+
+  if (WORKSPACE_FILE_KINDS.has(normalized)) return normalized
+  return LEGACY_FILE_KIND_MAP[normalized] || 'chat'
+}
+
+function resolveWorkspaceDeckFromKind(kind) {
+  return WORKSPACE_KIND_TO_DECK[normalizeWorkspaceFileKind(kind)] || 'research'
+}
+
+function normalizeWorkspaceDeck(workspace, kind, projectWorkspaces = []) {
+  const normalized = String(workspace || '')
+    .trim()
+    .toLowerCase()
+  if (projectWorkspaces.some((item) => item.id === normalized)) return normalized
+  if (WORKSPACE_DECKS.has(normalized)) return normalized
+
+  const fallback = resolveWorkspaceDeckFromKind(kind)
+  if (projectWorkspaces.some((item) => item.id === fallback)) return fallback
+  return projectWorkspaces[0]?.id || fallback
+}
+
+function normalizeWorkspaceFileName(name, kind) {
+  const resolvedKind = normalizeWorkspaceFileKind(kind)
+  const trimmed = typeof name === 'string' ? name.trim() : ''
+  const fallback = `untitled-${resolvedKind}.${resolvedKind}`
+  if (!trimmed) return fallback
+  const expectedExtension = `.${resolvedKind}`
+  if (trimmed.toLowerCase().endsWith(expectedExtension)) return trimmed
+
+  const withoutExtension = trimmed.replace(/\.[^./\\]+$/, '')
+  const safeBase = withoutExtension || `untitled-${resolvedKind}`
+  return `${safeBase}${expectedExtension}`
+}
+
+function createDefaultProjectWorkspaces() {
+  return cloneValue(DEFAULT_WORKSPACE_PRESETS)
+}
+
+function createWorkspaceSetByProfile(profileId = 'research') {
+  if (profileId === 'hybrid') return createDefaultProjectWorkspaces()
+  const matched = DEFAULT_WORKSPACE_PRESETS.find((workspace) => workspace.id === profileId)
+  if (matched) return [cloneValue(matched)]
+  return [cloneValue(DEFAULT_WORKSPACE_PRESETS.find((workspace) => workspace.id === 'research'))]
+}
+
+function createStarterFilesForWorkspaces(projectId, projectTitle, workspaces = []) {
+  const timestamp = new Date().toISOString()
+  const slug = projectTitle.trim().toLowerCase().replace(/\s+/g, '-')
+  if (!workspaces.length) return createDefaultFiles(projectId, projectTitle)
+
+  return workspaces.map((workspace) => {
+    const starterKind = normalizeWorkspaceFileKind(workspace.allowedKinds?.[0] || 'chat')
+    return {
+      id: `${projectId}-${workspace.id}-starter`,
+      name: `${slug}-${workspace.id}.${starterKind}`,
+      kind: starterKind,
+      workspace: workspace.id,
+      status: 'draft',
+      notes: '',
+      updatedAt: timestamp,
+    }
+  })
+}
+
+function normalizeProjectWorkspace(workspace, index = 0) {
+  const baseAllowedKinds = Array.isArray(workspace.allowedKinds)
+    ? [...new Set(workspace.allowedKinds.map((kind) => normalizeWorkspaceFileKind(kind)))]
+    : []
+
+  const family = ['motion', 'canvas', 'log', 'forge', 'chat'].includes(workspace.family)
+    ? workspace.family
+    : 'canvas'
+
+  const fallbackKind = family === 'motion'
+    ? 'motion'
+    : family === 'forge'
+      ? 'forge'
+      : family === 'chat'
+        ? 'chat'
+        : family === 'log'
+          ? 'log'
+          : 'scene'
+
+  const allowedKinds = baseAllowedKinds.length
+    ? baseAllowedKinds
+    : [fallbackKind]
+
+  if (!allowedKinds.includes('chat')) {
+    allowedKinds.push('chat')
+  }
+
+  return {
+    id: slugifyWorkspaceId(workspace.id || workspace.title || `workspace-${index + 1}`, `workspace-${index + 1}`),
+    title: (workspace.title || `Workspace ${index + 1}`).trim(),
+    icon: workspace.icon || '◈',
+    subtitle: workspace.subtitle || 'Custom workspace',
+    family,
+    allowedKinds,
+  }
+}
+
 function createDefaultFiles(projectId, projectTitle = 'Project') {
   const timestamp = '2050-03-12T09:00:00.000Z'
+  const slug = projectTitle.trim().toLowerCase().replace(/\s+/g, '-')
 
   return [
     {
       id: `${projectId}-brief`,
-      name: `${projectTitle} brief`,
-      kind: 'brief',
+      name: `${slug}-blueprint.forge`,
+      kind: 'forge',
+      workspace: 'forge',
       status: 'linked',
       notes: 'Короткий опис ідеї, контекст задачі та головний напрямок розвитку.',
       updatedAt: timestamp,
     },
     {
       id: `${projectId}-notes`,
-      name: `${projectTitle} notes`,
-      kind: 'note',
+      name: `${slug}-journal.log`,
+      kind: 'log',
+      workspace: 'research',
       status: 'draft',
       notes: 'Швидкі нотатки, чернетки рішень і питання до наступної ітерації.',
       updatedAt: timestamp,
@@ -89,6 +336,7 @@ function normalizeThread(thread) {
   return {
     id: thread.id || createId('thread'),
     title: thread.title || 'New thread',
+    folder: thread.folder || 'general',
     channel: thread.channel || 'Fresh signal',
     summary: thread.summary || 'Приватна лінія для швидких думок і контекстних рішень.',
     linkedProjectId: thread.linkedProjectId || null,
@@ -109,28 +357,39 @@ function normalizeThread(thread) {
 function normalizeProject(project) {
   const progress = clampProgress(project.progress)
   const title = project.title || 'Untitled Project'
+  const workspaces = Array.isArray(project.workspaces) && project.workspaces.length
+    ? project.workspaces.map((workspace, index) => normalizeProjectWorkspace(workspace, index))
+    : createDefaultProjectWorkspaces()
 
   return {
     id: project.id || createId('project'),
     title,
+    icon: project.icon || '🧠',
     shipClass: project.shipClass || 'Concept Vessel',
+    workspaceProfile: WORKSPACE_PROFILE_IDS.includes(project.workspaceProfile) ? project.workspaceProfile : workspaces[0]?.id || 'research',
     progress,
     stage: project.stage || resolveProjectStage(progress),
     summary: project.summary || 'Нова задумка в інкубаторі.',
     dossier: project.dossier || 'Робоча зона для синтезу ідей, обговорень та майбутніх рішень.',
+    notes: typeof project.notes === 'string' ? project.notes : (project.dossier || ''),
     linkedThreadId: project.linkedThreadId || null,
     updatedAt: project.updatedAt || new Date().toISOString(),
     milestones: Array.isArray(project.milestones) ? project.milestones : [],
     achievements: Array.isArray(project.achievements) ? project.achievements : [],
+    workspaces,
     files: Array.isArray(project.files) && project.files.length
-      ? project.files.map((file) => ({
+      ? project.files.map((file) => {
+        const normalizedKind = normalizeWorkspaceFileKind(file.kind)
+        return {
           id: file.id || createId('file'),
-          name: file.name || 'Untitled file',
-          kind: file.kind || 'note',
+          name: normalizeWorkspaceFileName(file.name, normalizedKind),
+          kind: normalizedKind,
+          workspace: normalizeWorkspaceDeck(file.workspace, normalizedKind, workspaces),
           status: file.status || 'draft',
           notes: file.notes || '',
           updatedAt: file.updatedAt || project.updatedAt || new Date().toISOString(),
-        }))
+        }
+      })
       : createDefaultFiles(project.id || createId('project-file'), title),
   }
 }
@@ -398,37 +657,6 @@ function createSeedProjects() {
   ]
 }
 
-function buildDaniloReply(message, project) {
-  const normalized = message.toLowerCase()
-  const fragments = []
-
-  if (normalized.includes('марс')) {
-    fragments.push('Якщо це йде у Марс, я б одразу прив’язував ідею до Valles Station та крижаного фронту.')
-  }
-
-  if (normalized.includes('двиг') || normalized.includes('тяг') || normalized.includes('physics')) {
-    fragments.push('Для рушіїв тримай курс на керований реалізм: сильне відчуття маси, але без зайвої бюрократії для гравця.')
-  }
-
-  if (normalized.includes('бренд') || normalized.includes('портфолі') || normalized.includes('резюме')) {
-    fragments.push('Це звучить як матеріал для Commander Dossier: покажи не лише результат, а й спосіб мислення.')
-  }
-
-  if (normalized.includes('данил') || normalized.includes('аватар')) {
-    fragments.push('Якщо це про мою присутність, то я б тримав баланс між живим характером і чистим функціональним UX.')
-  }
-
-  if (project) {
-    fragments.push(`Прив’язав думку до проєкту "${project.title}" - вона вже не загубиться.`)
-  }
-
-  if (!fragments.length) {
-    fragments.push('Прийняв сигнал. Це виглядає як хороша ідея для окремого експерименту або нового бортового модуля.')
-  }
-
-  return fragments.join(' ')
-}
-
 export const useIncubatorStore = defineStore('incubator', () => {
   const threads = ref(readJsonStorage(STORAGE_KEYS.threads, cloneValue(createSeedThreads())).map(normalizeThread))
   const projects = ref(readJsonStorage(STORAGE_KEYS.projects, cloneValue(createSeedProjects())).map(normalizeProject))
@@ -439,6 +667,8 @@ export const useIncubatorStore = defineStore('incubator', () => {
   const activeSection = ref(readStringStorage(STORAGE_KEYS.activeSection, 'comms'))
   const activeThreadId = ref(readStringStorage(STORAGE_KEYS.activeThread, threads.value[0]?.id || ''))
   const activeProjectId = ref(readStringStorage(STORAGE_KEYS.activeProject, projects.value[0]?.id || ''))
+  const aiStatus = ref('idle')
+  const aiError = ref('')
 
   function ensureSelection() {
     if (!threads.value.some((thread) => thread.id === activeThreadId.value)) {
@@ -486,6 +716,12 @@ export const useIncubatorStore = defineStore('incubator', () => {
     activeProjectId.value = projectId
   }
 
+  function updateThread(threadId, patch) {
+    threads.value = threads.value.map((thread) =>
+      thread.id === threadId ? normalizeThread({ ...thread, ...patch }) : thread
+    )
+  }
+
   function createThread(title, options = {}) {
     const trimmedTitle = title.trim()
     if (!trimmedTitle) return null
@@ -494,6 +730,7 @@ export const useIncubatorStore = defineStore('incubator', () => {
     const newThread = normalizeThread({
       id: createId('thread'),
       title: trimmedTitle,
+      folder: options.folder || 'general',
       channel: options.channel || 'Fresh signal',
       summary: options.summary || 'Нова приватна лінія для швидких думок, рішень і зшивання ідей у проєкти.',
       linkedProjectId: options.linkedProjectId || null,
@@ -532,9 +769,10 @@ export const useIncubatorStore = defineStore('incubator', () => {
     })
   }
 
-  function sendMessage(text, targetThreadId = activeThreadId.value) {
+  async function sendMessage(text, targetThreadId = activeThreadId.value) {
     const trimmedText = text.trim()
     if (!trimmedText) return false
+    if (aiStatus.value === 'generating') return false
 
     const targetThread = threads.value.find((thread) => thread.id === targetThreadId)
     if (!targetThread) return false
@@ -553,13 +791,40 @@ export const useIncubatorStore = defineStore('incubator', () => {
     const linkedProject =
       projects.value.find((project) => project.id === targetThread.linkedProjectId) || null
 
-    appendMessage(targetThreadId, {
-      id: createId('msg'),
-      author: 'danilo',
-      tone: linkedProject ? 'signal' : 'memory',
-      createdAt: new Date(now.getTime() + 900).toISOString(),
-      text: buildDaniloReply(trimmedText, linkedProject),
-    })
+    aiStatus.value = 'generating'
+    aiError.value = ''
+
+    try {
+      const latestThread = threads.value.find((thread) => thread.id === targetThreadId)
+      const reply = await generateDaniloReplyWithLocalModels({
+        threadTitle: latestThread?.title || targetThread.title,
+        messages: latestThread?.messages || [...targetThread.messages, operatorMessage],
+        linkedProject,
+      })
+
+      appendMessage(targetThreadId, {
+        id: createId('msg'),
+        author: 'danilo',
+        tone: linkedProject ? 'signal' : 'memory',
+        createdAt: new Date().toISOString(),
+        text: reply.text,
+      })
+
+      aiStatus.value = 'idle'
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown local AI error'
+      aiStatus.value = 'error'
+      aiError.value = message
+
+      appendMessage(targetThreadId, {
+        id: createId('msg'),
+        author: 'danilo',
+        tone: 'memory',
+        createdAt: new Date().toISOString(),
+        text: `Local AI error: ${message}`,
+      })
+    }
 
     return true
   }
@@ -624,28 +889,73 @@ export const useIncubatorStore = defineStore('incubator', () => {
     })
   }
 
-  function addProjectFile(projectId) {
+  function createProject(title, options = {}) {
+    const trimmedTitle = String(title || '').trim()
+    if (!trimmedTitle) return null
+
+    const profile = WORKSPACE_PROFILE_IDS.includes(options.workspaceProfile)
+      ? options.workspaceProfile
+      : 'research'
     const now = new Date().toISOString()
+    const projectId = createId('project')
+    const workspaces = createWorkspaceSetByProfile(profile)
+    const starterFiles = createStarterFilesForWorkspaces(projectId, trimmedTitle, workspaces)
+
+    const createdProject = normalizeProject({
+      id: projectId,
+      title: trimmedTitle,
+      icon: options.icon || workspaces[0]?.icon || '🧠',
+      shipClass: options.shipClass || `${workspaces[0]?.title || 'Research'} Workspace`,
+      progress: 0,
+      stage: 'idea',
+      workspaceProfile: profile,
+      summary: options.summary || `Нова робоча зона типу "${workspaces[0]?.title || 'Research'}".`,
+      dossier: options.dossier || 'Персональний воркспейс для побудови рішень і файлів.',
+      notes: '',
+      linkedThreadId: null,
+      updatedAt: now,
+      milestones: [],
+      achievements: [],
+      workspaces,
+      files: starterFiles,
+    })
+
+    projects.value = [createdProject, ...projects.value]
+    activeProjectId.value = createdProject.id
+    activeSection.value = 'bay'
+    return createdProject.id
+  }
+
+  function addProjectFile(projectId, payload = {}) {
+    const now = new Date().toISOString()
+    const nextKind = normalizeWorkspaceFileKind(payload.kind)
+    const nextName = normalizeWorkspaceFileName(payload.name, nextKind)
+    let createdFileId = null
 
     projects.value = projects.value.map((project) => {
       if (project.id !== projectId) return project
+      const nextWorkspace = normalizeWorkspaceDeck(payload.workspace, nextKind, project.workspaces)
+
+      const nextFile = {
+        id: createId('file'),
+        name: nextName,
+        kind: nextKind,
+        workspace: nextWorkspace,
+        status: payload.status || 'draft',
+        notes: payload.notes || '',
+        updatedAt: now,
+      }
+
+      createdFileId = nextFile.id
 
       return {
         ...project,
         updatedAt: now,
-        files: [
-          {
-            id: createId('file'),
-            name: 'untitled-file.txt',
-            kind: 'note',
-            status: 'draft',
-            notes: '',
-            updatedAt: now,
-          },
-          ...project.files,
-        ],
+        files: [nextFile, ...project.files],
       }
     })
+
+    return createdFileId
   }
 
   function updateProjectFile(projectId, fileId, patch) {
@@ -657,15 +967,110 @@ export const useIncubatorStore = defineStore('incubator', () => {
       return {
         ...project,
         updatedAt: now,
-        files: project.files.map((file) =>
-          file.id === fileId
-            ? {
-                ...file,
-                ...patch,
-                updatedAt: now,
-              }
-            : file
-        ),
+        files: project.files.map((file) => {
+          if (file.id !== fileId) return file
+
+          const nextKind = Object.prototype.hasOwnProperty.call(patch, 'kind')
+            ? normalizeWorkspaceFileKind(patch.kind)
+            : normalizeWorkspaceFileKind(file.kind)
+          const nextWorkspace = Object.prototype.hasOwnProperty.call(patch, 'workspace')
+            ? normalizeWorkspaceDeck(patch.workspace, nextKind, project.workspaces)
+            : normalizeWorkspaceDeck(file.workspace, nextKind, project.workspaces)
+
+          const nextName = Object.prototype.hasOwnProperty.call(patch, 'name')
+            ? normalizeWorkspaceFileName(patch.name, nextKind)
+            : Object.prototype.hasOwnProperty.call(patch, 'kind')
+              ? normalizeWorkspaceFileName(file.name, nextKind)
+              : file.name
+
+          return {
+            ...file,
+            ...patch,
+            kind: nextKind,
+            workspace: nextWorkspace,
+            name: nextName,
+            updatedAt: now,
+          }
+        }),
+      }
+    })
+  }
+
+  function addProjectWorkspace(projectId, payload = {}) {
+    const now = new Date().toISOString()
+    let createdWorkspaceId = null
+
+    projects.value = projects.value.map((project) => {
+      if (project.id !== projectId) return project
+
+      const normalizedWorkspace = normalizeProjectWorkspace({
+        id: payload.id || payload.title || createId('workspace'),
+        title: payload.title || 'Custom workspace',
+        icon: payload.icon || '◈',
+        subtitle: payload.subtitle || 'Custom workflow zone',
+        family: payload.family || 'canvas',
+        allowedKinds: payload.allowedKinds,
+      }, project.workspaces.length)
+
+      if (project.workspaces.some((workspace) => workspace.id === normalizedWorkspace.id)) {
+        normalizedWorkspace.id = `${normalizedWorkspace.id}-${Math.random().toString(36).slice(2, 6)}`
+      }
+
+      createdWorkspaceId = normalizedWorkspace.id
+
+      return {
+        ...project,
+        updatedAt: now,
+        workspaces: [...project.workspaces, normalizedWorkspace],
+      }
+    })
+
+    return createdWorkspaceId
+  }
+
+  function updateProjectWorkspace(projectId, workspaceId, patch = {}) {
+    const now = new Date().toISOString()
+
+    projects.value = projects.value.map((project) => {
+      if (project.id !== projectId) return project
+      if (!project.workspaces.some((workspace) => workspace.id === workspaceId)) return project
+
+      const nextWorkspaces = project.workspaces.map((workspace, index) => {
+        if (workspace.id !== workspaceId) return workspace
+
+        const nextWorkspace = normalizeProjectWorkspace({
+          ...workspace,
+          ...patch,
+          id: workspace.id,
+        }, index)
+
+        return {
+          ...nextWorkspace,
+          id: workspace.id,
+        }
+      })
+
+      const targetWorkspace = nextWorkspaces.find((workspace) => workspace.id === workspaceId)
+      const fallbackKind = targetWorkspace?.allowedKinds?.[0] || 'chat'
+
+      return {
+        ...project,
+        updatedAt: now,
+        workspaces: nextWorkspaces,
+        files: project.files.map((file) => {
+          if (file.workspace !== workspaceId) return file
+
+          const nextKind = targetWorkspace.allowedKinds.includes(file.kind)
+            ? file.kind
+            : normalizeWorkspaceFileKind(fallbackKind)
+
+          return {
+            ...file,
+            kind: nextKind,
+            name: normalizeWorkspaceFileName(file.name, nextKind),
+            updatedAt: now,
+          }
+        }),
       }
     })
   }
@@ -739,15 +1144,22 @@ export const useIncubatorStore = defineStore('incubator', () => {
     sortedProjects,
     activeThread,
     activeProject,
+    aiStatus,
+    aiError,
+    localLlmRuntime: getLocalLlmRuntimeLabel(),
     setActiveSection,
     selectThread,
     selectProject,
+    updateThread,
     createThread,
+    createProject,
     sendMessage,
     ensureProjectThread,
     updateProject,
     addProjectFile,
     updateProjectFile,
+    addProjectWorkspace,
+    updateProjectWorkspace,
     openProjectThread,
     advanceProject,
   }

@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import LimbusView from '../views/DashboardView.vue'
 import AvailableMissionsView from '../views/MissionsView.vue'
-import TheoCoreView from '../views/TheoCoreView.vue' // TEO Core
 import AdvancementsView from '../views/AdvancementsView.vue'
 import StagesnWorldsView from '../views/Stages&WorldsView.vue'
 import UserProfileView from '../views/UserProfileView.vue'
@@ -16,12 +15,6 @@ const router = createRouter({
       name: 'limbus',
       component: LimbusView,
       meta: { title: 'menu.dashboard' },
-    },
-    {
-      path: '/theo-core',
-      name: 'theo-core',
-      component: TheoCoreView,
-      meta: { title: 'menu.operations' },
     },
     {
       path: '/missions',

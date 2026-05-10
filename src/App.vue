@@ -36,7 +36,13 @@
     <main class="main-content">
       <div class="route-shell">
         <RouterView v-slot="{ Component, route: activeRoute }">
-          <Transition v-if="systemStore.animationsEnabled" name="route-pulse" mode="out-in">
+          <Transition
+            v-if="routeTransitionEnabled"
+            mode="out-in"
+            :css="false"
+            @enter="onRouteEnter"
+            @leave="onRouteLeave"
+          >
             <div :key="activeRoute.fullPath" class="route-frame">
               <component :is="Component" />
             </div>
@@ -52,6 +58,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
+import { gsap } from 'gsap'
 import { useRoute } from 'vue-router'
 import { useSystemStore } from '@/stores/systemStore'
 import TheSidebar from '@/components/layout/TheSidebar.vue'
@@ -60,12 +67,35 @@ const systemStore = useSystemStore()
 const route = useRoute()
 const isMobileViewport = ref(false)
 const isMobileMenuOpen = ref(false)
+const prefersReducedMotion = ref(false)
+const balancedPerformanceMode = ref(false)
+const backgroundCatalog = {
+  limbus: new URL('./assets/backgrounds/codioful-formerly-gradienta-O10vBIDRkZw-unsplash.jpg', import.meta.url).href,
+  missions: new URL('./assets/backgrounds/rohit-choudhari-_E6sXQHsgQc-unsplash.jpg', import.meta.url).href,
+  stages: new URL('./assets/backgrounds/scott-webb-OxHPDs4WV8Y-unsplash.jpg', import.meta.url).href,
+  achievements: new URL('./assets/backgrounds/maxim-berg-ANuuRuCRRAc-unsplash.jpg', import.meta.url).href,
+  profile: new URL('./assets/backgrounds/dileepa-nipun-5bakUnqvBo0-unsplash.jpg', import.meta.url).href,
+  incubator: new URL('./assets/backgrounds/milad-fakurian-dQDDMWgvotg-unsplash.jpg', import.meta.url).href,
+  fallback: new URL('./assets/backgrounds/milad-fakurian-iFu2HILEng8-unsplash.jpg', import.meta.url).href,
+}
 
 let mobileMediaQuery
+let reducedMotionMediaQuery
 
 const syncMobileViewport = (event) => {
   isMobileViewport.value = event.matches
   if (!event.matches) isMobileMenuOpen.value = false
+}
+
+const syncReducedMotion = (event) => {
+  prefersReducedMotion.value = event.matches
+}
+
+const syncPerformanceMode = () => {
+  const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 8) : 8
+  const memory = typeof navigator !== 'undefined' ? (navigator.deviceMemory ?? 8) : 8
+  const lowPowerDevice = cores <= 4 || memory <= 4
+  balancedPerformanceMode.value = isMobileViewport.value || prefersReducedMotion.value || lowPowerDevice
 }
 
 const toggleMobileMenu = () => {
@@ -80,15 +110,51 @@ const mobileRouteTitle = computed(() => {
   const titleKey = route.meta?.title
   return titleKey ? systemStore.t(titleKey) : 'EverestOS'
 })
+const routeTransitionEnabled = computed(() => systemStore.animationsEnabled && !prefersReducedMotion.value)
+const activeBackgroundImage = computed(() => {
+  const routeName = String(route.name || '')
+  return backgroundCatalog[routeName] || backgroundCatalog.fallback
+})
+
+function onRouteEnter(element, done) {
+  gsap.killTweensOf(element)
+  gsap.set(element, { autoAlpha: 0, y: 10 })
+  gsap.to(element, {
+    autoAlpha: 1,
+    y: 0,
+    duration: 0.18,
+    ease: 'power2.out',
+    onComplete: done,
+  })
+}
+
+function onRouteLeave(element, done) {
+  gsap.killTweensOf(element)
+  gsap.to(element, {
+    autoAlpha: 0,
+    y: -6,
+    duration: 0.1,
+    ease: 'power1.in',
+    onComplete: done,
+  })
+}
 
 onMounted(() => {
   mobileMediaQuery = window.matchMedia('(max-width: 1024px)')
+  reducedMotionMediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
   syncMobileViewport(mobileMediaQuery)
+  syncReducedMotion(reducedMotionMediaQuery)
+  if (!systemStore.animationsEnabled) {
+    systemStore.setAnimationsEnabled(true)
+  }
+  syncPerformanceMode()
   mobileMediaQuery.addEventListener('change', syncMobileViewport)
+  reducedMotionMediaQuery.addEventListener('change', syncReducedMotion)
 })
 
 onBeforeUnmount(() => {
   mobileMediaQuery?.removeEventListener('change', syncMobileViewport)
+  reducedMotionMediaQuery?.removeEventListener('change', syncReducedMotion)
 })
 
 watchEffect(() => {
@@ -101,6 +167,9 @@ watchEffect(() => {
   root.setAttribute('data-theme', activeTheme)
   root.setAttribute('data-accent', systemStore.accentColor)
   root.setAttribute('data-animations', systemStore.animationsEnabled.toString())
+  syncPerformanceMode()
+  root.setAttribute('data-performance', balancedPerformanceMode.value ? 'balanced' : 'full')
+  root.style.setProperty('--app-bg-image', activeBackgroundImage.value ? `url("${activeBackgroundImage.value}")` : 'none')
 })
 </script>
 
@@ -113,28 +182,33 @@ watchEffect(() => {
   --motion-base: 0.5s;
   --motion-slow: 0.85s;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --bg-main: #050505;
-  --bg-sidebar: #0a0a0a;
-  --bg-elevated: rgba(8, 11, 14, 0.72);
+  --bg-main: #06080b;
+  --bg-sidebar: #0a0d11;
+  --bg-elevated: rgba(9, 14, 18, 0.74);
   --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.04);
+  --text-secondary: #a7adb7;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.05);
   --glow-bottom: color-mix(in srgb, var(--accent-color) 32%, transparent);
   --glow-soft: color-mix(in srgb, var(--accent-color) 14%, transparent);
+  --surface-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.16);
+  --surface-shadow-strong: 0 18px 34px rgba(0, 0, 0, 0.24);
+  --app-bg-image: none;
 }
 
 [data-theme='light'] {
-  --bg-main: #f0f2f5;
-  --bg-sidebar: #e3e5e8;
+  --bg-main: #edf1f7;
+  --bg-sidebar: #e5e9f1;
   --bg-modal: #ffffff;
-  --bg-elevated: rgba(255, 255, 255, 0.78);
-  --text-primary: #111112;
-  --text-secondary: #4a4d55;
-  --border-color: rgba(0, 0, 0, 0.1);
-  --glass-bg: rgba(0, 0, 0, 0.05);
+  --bg-elevated: rgba(255, 255, 255, 0.84);
+  --text-primary: #111827;
+  --text-secondary: #4b5565;
+  --border-color: rgba(17, 24, 39, 0.12);
+  --glass-bg: rgba(17, 24, 39, 0.05);
   --glow-bottom: color-mix(in srgb, var(--accent-color) 22%, transparent);
   --glow-soft: color-mix(in srgb, var(--accent-color) 10%, transparent);
+  --surface-shadow-soft: 0 10px 20px rgba(25, 32, 44, 0.09);
+  --surface-shadow-strong: 0 16px 28px rgba(25, 32, 44, 0.14);
 }
 
 /* Адаптивні акценти (світла/темна теми) */
@@ -156,53 +230,89 @@ html[data-animations='false'] {
   --motion-slow: 0.01ms;
 }
 
+html[data-performance='balanced'] {
+  --motion-quick: 0.16s;
+  --motion-base: 0.3s;
+  --motion-slow: 0.5s;
+}
+
+html *,
+html *::before,
+html *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html[data-animations='true'] body {
+  transition: background 0.16s linear, color 0.16s linear !important;
+}
+
+html[data-animations='true'] .mobile-menu-btn span {
+  transition: transform 0.12s ease, opacity 0.12s ease, background-color 0.12s ease !important;
+}
+
+html[data-animations='true'] :is(button, a, input, textarea, select) {
+  transition:
+    color 0.12s linear,
+    border-color 0.12s linear,
+    opacity 0.12s linear !important;
+}
+
 .app-root, html, body { height: 100%; margin: 0; padding: 0; }
 body {
   position: relative;
   background:
-    radial-gradient(circle at 50% 115%, color-mix(in srgb, var(--accent-color) 18%, transparent), transparent 34%),
-    radial-gradient(circle at top left, color-mix(in srgb, var(--accent-color) 14%, transparent), transparent 28%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--accent-color) 12%, transparent), transparent 24%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 26%),
+    radial-gradient(circle at 52% 112%, color-mix(in srgb, var(--accent-color) 18%, transparent), transparent 36%),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent-color) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 22%),
     var(--bg-main);
   color: var(--text-primary);
   font-family: var(--font-main);
-  transition: background 0.3s ease, color 0.3s ease;
   overflow: hidden; /* prevent page-level scrolling */
 }
 
-body::before,
-body::after {
-  content: none;
+html[data-performance='balanced'] body {
+  background:
+    radial-gradient(circle at 50% 115%, color-mix(in srgb, var(--accent-color) 10%, transparent), transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 18%),
+    var(--bg-main);
+  transition: none;
 }
 
 body::before {
-  left: 18%;
-  right: 10%;
-  bottom: -22%;
-  height: 38vh;
-  border-radius: 50%;
-  background:
-    radial-gradient(ellipse at center, color-mix(in srgb, var(--accent-color) 26%, transparent) 0%, transparent 62%),
-    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.08) 0%, transparent 42%);
-  opacity: 1;
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: var(--app-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.34;
+  filter: none;
 }
 
 body::after {
-  width: 28vw;
-  min-width: 240px;
-  height: 60vh;
-  top: 10%;
-  right: -8vw;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent-color) 18%, transparent) 0%, transparent 66%);
-  opacity: 0.85;
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(4, 7, 11, 0.22), rgba(4, 7, 11, 0.44)),
+    radial-gradient(circle at 84% 8%, color-mix(in srgb, var(--accent-color) 14%, transparent), transparent 22%);
 }
+
+[data-theme='light'] body::before { opacity: 0.2; filter: none; }
+[data-theme='light'] body::after { background: linear-gradient(180deg, rgba(237, 241, 247, 0.28), rgba(237, 241, 247, 0.52)); }
+html[data-performance='balanced'] body::before { opacity: 0.16; filter: none; }
 
 .app-root {
   display: flex;
   height: 100vh;
   position: relative;
+  z-index: 1;
   isolation: isolate;
   overflow: hidden;
 }
@@ -302,7 +412,6 @@ body::after {
   height: 2px;
   border-radius: 999px;
   background: var(--text-primary);
-  transition: transform 0.22s ease, opacity 0.22s ease, background 0.22s ease;
 }
 
 .mobile-menu-btn.is-open span {
@@ -363,7 +472,6 @@ body::after {
   flex: 1;
   height: 100vh;
   margin-left: 280px;
-  transition: margin-left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   position: relative;
   isolation: isolate;
@@ -377,96 +485,49 @@ body::after {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 18%),
-    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--accent-color) 16%, transparent), transparent 18%),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.012), transparent);
-  z-index: -1;
+    var(--app-bg-image) center / cover no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 16%),
+    radial-gradient(circle at 84% 14%, color-mix(in srgb, var(--accent-color) 13%, transparent), transparent 20%),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 18px,
+      rgba(255, 255, 255, 0.01) 18px,
+      rgba(255, 255, 255, 0.01) 19px
+    );
+  opacity: 0.22;
+  z-index: 0;
+}
+
+html[data-performance='balanced'] .main-content::before {
+  background:
+    var(--app-bg-image) center / cover no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 18%),
+    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--accent-color) 9%, transparent), transparent 20%);
+  opacity: 0.14;
 }
 
 .main-content::after {
   content: none;
 }
 
+[data-theme='light'] .main-content::before {
+  opacity: 0.12;
+}
+
 .route-shell {
   position: relative;
   height: 100%;
   overflow: hidden;
+  z-index: 1;
 }
 
 .route-frame {
   position: relative;
   height: 100%;
   isolation: isolate;
-  will-change: opacity, transform;
+  will-change: auto;
   backface-visibility: hidden;
-}
-
-.route-frame::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: min(22vw, 180px);
-  pointer-events: none;
-  opacity: 0;
-  z-index: 2;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent-color) 18%, transparent) 0%,
-    color-mix(in srgb, var(--accent-color) 7%, transparent) 42%,
-    transparent 100%
-  );
-  transform: translate3d(-115%, 0, 0);
-}
-
-.route-pulse-enter-active,
-.route-pulse-leave-active {
-  will-change: opacity, transform;
-  backface-visibility: hidden;
-}
-
-.route-pulse-enter-active {
-  transition:
-    opacity 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.route-pulse-enter-active::before {
-  animation: route-accent-sweep 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.route-pulse-leave-active {
-  transition: opacity 0.1s linear;
-}
-
-.route-pulse-enter-from {
-  opacity: 0;
-  transform: translate3d(0, 16px, 0);
-}
-
-.route-pulse-enter-to,
-.route-pulse-leave-from {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-}
-
-.route-pulse-leave-to {
-  opacity: 0;
-}
-
-@keyframes route-accent-sweep {
-  0% {
-    opacity: 0;
-    transform: translate3d(-115%, 0, 0);
-  }
-
-  18% {
-    opacity: 0.9;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate3d(190%, 0, 0);
-  }
 }
 
 .app-root:has(.sidebar.is-collapsed) .main-content { margin-left: 80px; }
@@ -498,38 +559,6 @@ body::after {
     right: -16vw;
   }
 
-  .route-pulse-enter-active {
-    transition-duration: 0.18s;
-  }
-
-  .route-pulse-leave-active {
-    transition-duration: 0.08s;
-  }
-
-  .route-pulse-enter-from {
-    transform: translate3d(0, 10px, 0);
-  }
-
-  .route-pulse-enter-active::before {
-    animation-duration: 0.26s;
-  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .route-pulse-enter-active,
-  .route-pulse-leave-active {
-    transition-duration: 0.01ms;
-  }
-
-  .route-pulse-enter-from,
-  .route-pulse-enter-to,
-  .route-pulse-leave-from,
-  .route-pulse-leave-to {
-    transform: none;
-  }
-
-  .route-pulse-enter-active::before {
-    animation: none;
-  }
-}
 </style>

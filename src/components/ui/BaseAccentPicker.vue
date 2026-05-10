@@ -19,20 +19,25 @@ const colors = ['green', 'cyan', 'orange', 'purple']
 <style scoped>
 .accent-grid {
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-elevated) 92%, var(--bg-main) 8%);
 }
 button {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   cursor: pointer;
-  transition: 0.3s;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 button.active {
-  border-color: #fff;
-  transform: scale(1.15);
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+  border-color: color-mix(in srgb, var(--text-primary) 70%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent-color) 22%, transparent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.36);
 }
 .green {
   background: #deff9a;

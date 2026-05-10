@@ -27,8 +27,8 @@ defineEmits(['close'])
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, #000 70%, transparent);
+  backdrop-filter: blur(8px);
   z-index: 5000;
   display: flex;
   align-items: center;
@@ -36,14 +36,19 @@ defineEmits(['close'])
   padding: 20px;
 }
 .modal-content {
-  background: var(--bg-modal);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
+    var(--bg-modal);
   border: 1px solid var(--border-color);
   border-radius: 24px;
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
+  box-shadow:
+    0 24px 50px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .modal-header {
   padding: 24px;
